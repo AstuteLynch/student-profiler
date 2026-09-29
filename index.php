@@ -740,9 +740,9 @@
 
                     <h4>Social</h4>
 
-                    <a href="#">Facebook</a>
-                    <a href="#">Instagram</a>
-                    <a href="#">GitHub</a>
+                    <a href="https://www.facebook.com/lench.1111">Facebook</a>
+                    <a href="https://www.instagram.com/lench._.h/">Instagram</a>
+                    <a href="https://github.com/AstuteLynch">GitHub</a>
 
                 </div>
 

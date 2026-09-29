@@ -1,11 +1,9 @@
 <?php
-// ================================================
 // Student Dashboard
 // Backend/database functionality will be added later.
-// ================================================
 
 // Temporary placeholder data
-$studentName = "Lynch";
+$studentName = "Juan";
 $profileCompletion = 80;
 
 $recentAccomplishments = [
@@ -29,16 +27,14 @@ $recentAccomplishments = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Dashboard | StudentProfiler</title>
+    <title>Dashboard | CVSWHO</title>
 
     <link rel="stylesheet" href="student_dashboard.css">
 </head>
 
 <body>
 
-    <!-- ================================
-         Navigation
-    ================================= -->
+    <!-- Navigation -->
 
     <header class="navbar">
 
@@ -47,13 +43,13 @@ $recentAccomplishments = [
             <a href="student_dashboard.php" class="brand">
 
                 <div class="brand-mark">
-                    SP
+                    C
                 </div>
 
                 <div class="brand-text">
 
                     <span class="brand-name">
-                        StudentProfiler
+                        CVSWHO
                     </span>
 
                     <span class="brand-subtitle">
@@ -95,16 +91,12 @@ $recentAccomplishments = [
     </header>
 
 
-    <!-- ================================
-         Main Dashboard
-    ================================= -->
+    <!--Main Dashboard-->
 
     <main class="dashboard">
 
 
-        <!-- ================================
-             Welcome
-        ================================= -->
+        <!--Welcome-->
 
         <section class="welcome-section">
 
@@ -134,9 +126,7 @@ $recentAccomplishments = [
 
 
 
-        <!-- ================================
-             Profile Completion
-        ================================= -->
+        <!--Profile Completion-->
 
         <section class="completion-card">
 
@@ -196,9 +186,7 @@ $recentAccomplishments = [
 
 
 
-        <!-- ================================
-             Profile Overview
-        ================================= -->
+        <!--Profile Overview-->
 
         <section class="overview-grid">
 
@@ -237,7 +225,7 @@ $recentAccomplishments = [
                     <div>
 
                         <h3>
-                            <?php echo htmlspecialchars($studentName); ?> Esplana
+                            <?php echo htmlspecialchars($studentName); ?> Dead
                         </h3>
 
                         <p>

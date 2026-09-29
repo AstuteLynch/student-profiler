@@ -6,16 +6,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register | StudentProfiler</title>
+    <title>Register | CVSWHO</title>
     <link rel="stylesheet" href="register.css">
 </head>
 <body>
 <main class="auth-page">
 <section class="auth-card">
     <div class="brand">
-        <div class="brand-mark">SP</div>
+        <div class="brand-mark">C</div>
         <div>
-            <h1>StudentProfiler</h1>
+            <h1>CVSWHO</h1>
             <p>Student profile management system</p>
         </div>
     </div>

@@ -1,0 +1,341 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    --primary-green: #006b3f;
+    --deep-green: #004d2a;
+    --dark-green: #003d24;
+    --light-green: #ddefe5;
+    --very-light-green: #f5f8f6;
+    --white: #ffffff;
+    --text-dark: #1d2b24;
+    --text-medium: #68766f;
+    --border-color: #dce7e0;
+    --shadow: 0 10px 30px rgba(0,61,36,.07);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-dark);
+    background: var(--very-light-green);
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255,255,255,.96);
+    border-bottom: 1px solid #edf1ee;
+    backdrop-filter: blur(16px);
+}
+
+.nav-container {
+    width: min(1180px, calc(100% - 40px));
+    min-height: 76px;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.brand-mark {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    color: white;
+    background: var(--primary-green);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.brand-name {
+    color: var(--dark-green);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.brand-subtitle {
+    color: var(--text-medium);
+    font-size: 9px;
+}
+
+.desktop-nav {
+    display: flex;
+    gap: 30px;
+}
+
+.nav-link {
+    position: relative;
+    padding: 29px 0;
+    color: var(--text-medium);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.nav-link.active,
+.nav-link:hover {
+    color: var(--primary-green);
+}
+
+.nav-link.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 20px;
+    height: 2px;
+    background: var(--primary-green);
+}
+
+.logout-button {
+    padding: 9px 16px;
+    color: var(--primary-green);
+    border: 1px solid var(--primary-green);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.page {
+    width: min(1080px, calc(100% - 40px));
+    margin: auto;
+    padding: 55px 0 75px;
+}
+
+.page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 30px;
+}
+
+.eyebrow,
+.section-label {
+    color: var(--primary-green);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+}
+
+.page-header h1 {
+    margin-top: 8px;
+    color: var(--dark-green);
+    font-size: 32px;
+}
+
+.page-header p {
+    margin-top: 10px;
+    color: var(--text-medium);
+    font-size: 13px;
+}
+
+.back-button {
+    padding: 10px 15px;
+    color: var(--primary-green);
+    border: 1px solid var(--primary-green);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 28px;
+    margin-bottom: 22px;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+}
+
+.profile-photo {
+    width: 90px;
+    height: 90px;
+    display: grid;
+    place-items: center;
+    color: var(--primary-green);
+    background: var(--light-green);
+    border-radius: 50%;
+    font-size: 30px;
+    font-weight: 700;
+}
+
+.profile-info h2 {
+    margin-top: 7px;
+    color: var(--dark-green);
+    font-size: 21px;
+}
+
+.profile-info p {
+    margin-top: 5px;
+    color: var(--text-medium);
+    font-size: 10px;
+}
+
+.profile-info > span:last-child {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-medium);
+    font-size: 10px;
+}
+
+.status {
+    color: var(--primary-green);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .7px;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+}
+
+.profile-card {
+    padding: 28px;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+}
+
+.profile-card.full {
+    grid-column: 1 / -1;
+}
+
+.profile-card h2 {
+    margin-top: 7px;
+    color: var(--dark-green);
+    font-size: 18px;
+}
+
+.info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.info-list div,
+.summary-grid div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.info-list span,
+.summary-grid span {
+    color: var(--text-medium);
+    font-size: 9px;
+}
+
+.info-list strong,
+.summary-grid strong {
+    color: var(--text-dark);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.about {
+    margin-top: 18px;
+    color: var(--text-medium);
+    font-size: 11px;
+    line-height: 1.8;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-top: 22px;
+}
+
+.footer {
+    padding: 25px;
+    text-align: center;
+    background: white;
+    border-top: 1px solid var(--border-color);
+}
+
+.footer p {
+    color: var(--dark-green);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.footer span {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-medium);
+    font-size: 10px;
+}
+
+@media (max-width: 850px) {
+    .desktop-nav {
+        display: none;
+    }
+
+    .page-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .profile-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-card.full {
+        grid-column: auto;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .nav-container,
+    .page {
+        width: calc(100% - 28px);
+    }
+
+    .brand-subtitle {
+        display: none;
+    }
+
+    .profile-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
