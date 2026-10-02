@@ -412,67 +412,74 @@ if (isset($_GET["added"])) {
 <body>
 
 
-<header class="navbar">
+    <header class="navbar">
 
-    <div class="nav-container">
+        <div class="nav-container">
 
+
+            <a
+                href="index.php"
+                class="brand"
+            >
+
+                <div class="brand-mark">
+                    C
+                </div>
+
+
+                <div class="brand-text">
+
+                    <span class="brand-name">
+                        CVSWHO
+                    </span>
+
+                    <span class="brand-subtitle">
+                        Student Profile Management
+                    </span>
+
+                </div>
+
+            </a>
+
+
+            <nav class="desktop-nav">
 
         <a
-            href="index.php"
-            class="brand"
+            href="student_dashboard.php"
+            class="nav-link"
         >
-
-            <div class="brand-mark">
-                C
-            </div>
-
-
-            <div class="brand-text">
-
-                <span class="brand-name">
-                    CVSWHO
-                </span>
-
-                <span class="brand-subtitle">
-                    Student Profile Management
-                </span>
-
-            </div>
-
+            Dashboard
         </a>
 
+        <a
+            href="student_profile.php"
+            class="nav-link"
+        >
+            Profile
+        </a>
 
-        <nav class="desktop-nav">
+        <a
+            href="accomplishments.php"
+            class="nav-link active"
+        >
+            Accomplishments
+        </a>
 
-            <a
-                href="student_dashboard.php"
-                class="nav-link"
-            >
-                Dashboard
-            </a>
+        <a
+            href="privacy.php"
+            class="nav-link"
+        >
+            Privacy
+        </a>
 
-            <a
-                href="student_profile.php"
-                class="nav-link"
-            >
-                Profile
-            </a>
+        <a
+            href="settings.php"
+            class="nav-link"
+        >
+            Settings
+        </a>
 
-            <a
-                href="accomplishments.php"
-                class="nav-link active"
-            >
-                Accomplishments
-            </a>
-
-            <a
-                href="privacy.php"
-                class="nav-link"
-            >
-                Privacy
-            </a>
-
-        </nav>
+    </nav>
 
 
         <a

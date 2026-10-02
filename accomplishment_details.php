@@ -410,7 +410,7 @@ $documentName =
 
             <a
                 href="accomplishments.php"
-                class="nav-link active"
+                class="nav-link"
             >
                 Accomplishments
             </a>
@@ -420,6 +420,13 @@ $documentName =
                 class="nav-link"
             >
                 Privacy
+            </a>
+
+            <a
+                href="settings.php"
+                class="nav-link"
+            >
+                Settings
             </a>
 
         </nav>
