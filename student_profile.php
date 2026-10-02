@@ -5,9 +5,7 @@ session_start();
 require_once "db.php";
 
 
-/* =========================================================
-   REQUIRE LOGIN
-========================================================= */
+/* LOGIN */
 
 if (!isset($_SESSION["user_id"])) {
 
@@ -16,12 +14,11 @@ if (!isset($_SESSION["user_id"])) {
 }
 
 
-$userId = (int) $_SESSION["user_id"];
+$userId =
+    (int) $_SESSION["user_id"];
 
 
-/* =========================================================
-   LOGOUT
-========================================================= */
+/* LOGOUT */
 
 if (isset($_GET["logout"])) {
 
@@ -49,62 +46,61 @@ if (isset($_GET["logout"])) {
     session_destroy();
 
 
-    header("Location: login.php");
+    header("Location: index.php");
     exit;
 }
 
 
-/* =========================================================
-   GET STUDENT PROFILE
+/* STUDENT */
 
-   Main student information comes from:
+$stmt =
+    $conn->prepare("
+        SELECT
 
-   users
-   student_profiles
-   family_information
-========================================================= */
+            u.email,
+            u.role,
+            u.account_status,
+            u.email_verified,
+            u.created_at,
 
-$stmt = $conn->prepare("
-    SELECT
+            sp.student_id,
+            sp.first_name,
+            sp.middle_name,
+            sp.last_name,
+            sp.suffix,
 
-        u.email,
-        u.account_status,
+            sp.phone,
+            sp.birthdate,
+            sp.gender,
+            sp.address,
 
-        sp.first_name,
-        sp.middle_name,
-        sp.last_name,
-        sp.student_id,
-        sp.phone,
-        sp.birthdate,
-        sp.gender,
-        sp.address,
+            sp.program,
+            sp.year_level,
+            sp.section,
+            sp.college,
+            sp.campus,
 
-        sp.program,
-        sp.year_level,
-        sp.section,
-        sp.college,
-        sp.campus,
+            sp.profile_photo,
+            sp.about_me,
+            sp.profile_completion,
 
-        sp.profile_photo,
-        sp.about_me,
+            fi.father_name,
+            fi.mother_name,
+            fi.guardian_name,
+            fi.guardian_contact
 
-        fi.father_name,
-        fi.mother_name,
-        fi.guardian_name,
-        fi.guardian_contact
+        FROM users u
 
-    FROM users u
+        LEFT JOIN student_profiles sp
+            ON sp.user_id = u.id
 
-    LEFT JOIN student_profiles sp
-        ON sp.user_id = u.id
+        LEFT JOIN family_information fi
+            ON fi.user_id = u.id
 
-    LEFT JOIN family_information fi
-        ON fi.user_id = u.id
+        WHERE u.id = ?
 
-    WHERE u.id = ?
-
-    LIMIT 1
-");
+        LIMIT 1
+    ");
 
 
 if (!$stmt) {
@@ -147,35 +143,353 @@ if (!$student) {
 }
 
 
-/* =========================================================
-   GET EDUCATIONAL BACKGROUND
-========================================================= */
+/* ACCOUNT STATUS */
 
-$education = [
+if (
+    $student["account_status"] !== "active" ||
+    (int) $student["email_verified"] !== 1
+) {
 
-    "elementary" => "",
-    "junior_high" => "",
-    "senior_high" => ""
-];
+    $_SESSION = [];
+
+    session_destroy();
+
+    header("Location: login.php");
+    exit;
+}
 
 
-$educationStmt = $conn->prepare("
-    SELECT
-        education_level,
-        school_name
+/* HELPERS */
 
-    FROM education
+function profileValue(
+    ?string $value,
+    string $fallback = "Not added"
+): string {
 
-    WHERE user_id = ?
+    $value =
+        trim(
+            (string) $value
+        );
 
-    AND education_level IN (
-        'elementary',
-        'junior_high',
-        'senior_high'
-    )
 
-    ORDER BY id ASC
-");
+    return
+        $value !== ""
+            ? $value
+            : $fallback;
+}
+
+
+function educationYearRange(
+    $startYear,
+    $endYear
+): string {
+
+    $startYear =
+        trim(
+            (string) $startYear
+        );
+
+
+    $endYear =
+        trim(
+            (string) $endYear
+        );
+
+
+    if (
+        $startYear !== "" &&
+        $endYear !== ""
+    ) {
+
+        if (
+            $startYear ===
+            $endYear
+        ) {
+
+            return $startYear;
+        }
+
+
+        return
+            $startYear .
+            " - " .
+            $endYear;
+    }
+
+
+    if ($startYear !== "") {
+
+        return
+            $startYear .
+            " - Present";
+    }
+
+
+    if ($endYear !== "") {
+
+        return $endYear;
+    }
+
+
+    return "";
+}
+
+
+/* NAME */
+
+$nameParts = [];
+
+
+foreach (
+    [
+        $student["first_name"] ?? "",
+        $student["middle_name"] ?? "",
+        $student["last_name"] ?? "",
+        $student["suffix"] ?? ""
+    ]
+    as $namePart
+) {
+
+    $namePart =
+        trim(
+            $namePart
+        );
+
+
+    if ($namePart !== "") {
+
+        $nameParts[] =
+            $namePart;
+    }
+}
+
+
+$fullName =
+    trim(
+        implode(
+            " ",
+            $nameParts
+        )
+    );
+
+
+if ($fullName === "") {
+
+    $fullName =
+        "Student";
+}
+
+
+$firstName =
+    trim(
+        $student["first_name"]
+        ?? ""
+    );
+
+
+$avatarInitial =
+    strtoupper(
+        substr(
+            $firstName !== ""
+                ? $firstName
+                : "S",
+            0,
+            1
+        )
+    );
+
+
+/* PROFILE DATA */
+
+$studentId =
+    trim(
+        $student["student_id"]
+        ?? ""
+    );
+
+
+$email =
+    trim(
+        $student["email"]
+        ?? ""
+    );
+
+
+$phone =
+    trim(
+        $student["phone"]
+        ?? ""
+    );
+
+
+$birthdate =
+    trim(
+        $student["birthdate"]
+        ?? ""
+    );
+
+
+$gender =
+    trim(
+        $student["gender"]
+        ?? ""
+    );
+
+
+$address =
+    trim(
+        $student["address"]
+        ?? ""
+    );
+
+
+$program =
+    trim(
+        $student["program"]
+        ?? ""
+    );
+
+
+$yearLevel =
+    trim(
+        $student["year_level"]
+        ?? ""
+    );
+
+
+$section =
+    trim(
+        $student["section"]
+        ?? ""
+    );
+
+
+$college =
+    trim(
+        $student["college"]
+        ?? ""
+    );
+
+
+$campus =
+    trim(
+        $student["campus"]
+        ?? ""
+    );
+
+
+$profilePhoto =
+    trim(
+        $student["profile_photo"]
+        ?? ""
+    );
+
+
+$aboutMe =
+    trim(
+        $student["about_me"]
+        ?? ""
+    );
+
+
+$fatherName =
+    trim(
+        $student["father_name"]
+        ?? ""
+    );
+
+
+$motherName =
+    trim(
+        $student["mother_name"]
+        ?? ""
+    );
+
+
+$guardianName =
+    trim(
+        $student["guardian_name"]
+        ?? ""
+    );
+
+
+$guardianContact =
+    trim(
+        $student["guardian_contact"]
+        ?? ""
+    );
+
+
+/* BIRTHDATE */
+
+$birthdateDisplay =
+    "Not added";
+
+
+if ($birthdate !== "") {
+
+    $birthdateTimestamp =
+        strtotime(
+            $birthdate
+        );
+
+
+    if (
+        $birthdateTimestamp !== false
+    ) {
+
+        $birthdateDisplay =
+            date(
+                "F j, Y",
+                $birthdateTimestamp
+            );
+    }
+}
+
+
+/* EDUCATION */
+
+$education = [];
+
+
+$educationStmt =
+    $conn->prepare("
+        SELECT
+
+            id,
+            education_level,
+            school_name,
+            start_year,
+            end_year,
+            achievements
+
+        FROM education
+
+        WHERE user_id = ?
+
+        ORDER BY
+
+            CASE education_level
+
+                WHEN 'elementary'
+                    THEN 1
+
+                WHEN 'junior_high'
+                    THEN 2
+
+                WHEN 'senior_high'
+                    THEN 3
+
+                WHEN 'college'
+                    THEN 4
+
+                ELSE 5
+
+            END,
+
+            start_year ASC,
+            id ASC
+    ");
 
 
 if ($educationStmt) {
@@ -190,34 +504,18 @@ if ($educationStmt) {
 
 
     $educationResult =
-        $educationStmt->get_result();
+        $educationStmt
+            ->get_result();
 
 
     while (
-        $educationRow =
-            $educationResult->fetch_assoc()
+        $row =
+            $educationResult
+                ->fetch_assoc()
     ) {
 
-        $level =
-            $educationRow[
-                "education_level"
-            ];
-
-
-        if (
-            array_key_exists(
-                $level,
-                $education
-            )
-        ) {
-
-            $education[$level] =
-                trim(
-                    $educationRow[
-                        "school_name"
-                    ] ?? ""
-                );
-        }
+        $education[] =
+            $row;
     }
 
 
@@ -225,297 +523,400 @@ if ($educationStmt) {
 }
 
 
-/* =========================================================
-   PROFILE VALUES
-========================================================= */
+/* HOBBIES */
 
-$firstName =
-    trim(
-        $student["first_name"] ?? ""
+$hobbies = [];
+
+
+$hobbyStmt =
+    $conn->prepare("
+        SELECT
+
+            id,
+            hobby
+
+        FROM hobbies
+
+        WHERE user_id = ?
+
+        ORDER BY id DESC
+    ");
+
+
+if ($hobbyStmt) {
+
+    $hobbyStmt->bind_param(
+        "i",
+        $userId
     );
 
 
-$middleName =
-    trim(
-        $student["middle_name"] ?? ""
-    );
+    $hobbyStmt->execute();
 
 
-$lastName =
-    trim(
-        $student["last_name"] ?? ""
-    );
+    $hobbyResult =
+        $hobbyStmt
+            ->get_result();
 
 
-$studentId =
-    trim(
-        $student["student_id"] ?? ""
-    );
+    while (
+        $row =
+            $hobbyResult
+                ->fetch_assoc()
+    ) {
 
-
-$email =
-    trim(
-        $student["email"] ?? ""
-    );
-
-
-$phone =
-    trim(
-        $student["phone"] ?? ""
-    );
-
-
-$birthdate =
-    trim(
-        $student["birthdate"] ?? ""
-    );
-
-
-$gender =
-    trim(
-        $student["gender"] ?? ""
-    );
-
-
-$address =
-    trim(
-        $student["address"] ?? ""
-    );
-
-
-$program =
-    trim(
-        $student["program"] ?? ""
-    );
-
-
-$yearLevel =
-    trim(
-        $student["year_level"] ?? ""
-    );
-
-
-$section =
-    trim(
-        $student["section"] ?? ""
-    );
-
-
-$college =
-    trim(
-        $student["college"] ?? ""
-    );
-
-
-$campus =
-    trim(
-        $student["campus"] ?? ""
-    );
-
-
-$profilePhoto =
-    trim(
-        $student["profile_photo"] ?? ""
-    );
-
-
-$aboutMe =
-    trim(
-        $student["about_me"] ?? ""
-    );
-
-
-$fatherName =
-    trim(
-        $student["father_name"] ?? ""
-    );
-
-
-$motherName =
-    trim(
-        $student["mother_name"] ?? ""
-    );
-
-
-$guardianName =
-    trim(
-        $student["guardian_name"] ?? ""
-    );
-
-
-$guardianContact =
-    trim(
-        $student["guardian_contact"] ?? ""
-    );
-
-
-$elementarySchool =
-    trim(
-        $education["elementary"]
-    );
-
-
-$juniorHighSchool =
-    trim(
-        $education["junior_high"]
-    );
-
-
-$seniorHighSchool =
-    trim(
-        $education["senior_high"]
-    );
-
-
-/* =========================================================
-   FULL NAME
-========================================================= */
-
-$nameParts = [];
-
-
-if ($firstName !== "") {
-    $nameParts[] = $firstName;
-}
-
-
-if ($middleName !== "") {
-    $nameParts[] = $middleName;
-}
-
-
-if ($lastName !== "") {
-    $nameParts[] = $lastName;
-}
-
-
-$fullName =
-    trim(
-        implode(
-            " ",
-            $nameParts
-        )
-    );
-
-
-if ($fullName === "") {
-    $fullName = "Student";
-}
-
-
-/* =========================================================
-   AVATAR INITIAL
-========================================================= */
-
-$avatarSource =
-    $firstName !== ""
-        ? $firstName
-        : $fullName;
-
-
-$avatarInitial =
-    strtoupper(
-        substr(
-            $avatarSource,
-            0,
-            1
-        )
-    );
-
-
-/* =========================================================
-   ACCOUNT STATUS
-========================================================= */
-
-$accountStatus =
-    strtolower(
-        trim(
-            $student[
-                "account_status"
-            ] ?? "pending"
-        )
-    );
-
-
-if ($accountStatus === "active") {
-
-    $accountStatusDisplay =
-        "Profile Active";
-
-} elseif ($accountStatus === "pending") {
-
-    $accountStatusDisplay =
-        "Profile Pending";
-
-} elseif ($accountStatus === "suspended") {
-
-    $accountStatusDisplay =
-        "Profile Suspended";
-
-} elseif ($accountStatus === "archived") {
-
-    $accountStatusDisplay =
-        "Profile Archived";
-
-} elseif ($accountStatus === "deactivated") {
-
-    $accountStatusDisplay =
-        "Profile Deactivated";
-
-} else {
-
-    $accountStatusDisplay =
-        ucfirst(
-            $accountStatus
-        );
-}
-
-
-/* =========================================================
-   BIRTHDATE DISPLAY
-========================================================= */
-
-$birthdateDisplay = "";
-
-
-if ($birthdate !== "") {
-
-    $birthTimestamp =
-        strtotime(
-            $birthdate
-        );
-
-
-    if ($birthTimestamp !== false) {
-
-        $birthdateDisplay =
-            date(
-                "F j, Y",
-                $birthTimestamp
+        $hobby =
+            trim(
+                $row["hobby"]
+                ?? ""
             );
+
+
+        if ($hobby !== "") {
+
+            $hobbies[] =
+                $hobby;
+        }
+    }
+
+
+    $hobbyStmt->close();
+}
+
+
+/* INTERESTS */
+
+$interests = [];
+
+
+$interestStmt =
+    $conn->prepare("
+        SELECT
+
+            id,
+            interest
+
+        FROM interests
+
+        WHERE user_id = ?
+
+        ORDER BY id DESC
+    ");
+
+
+if ($interestStmt) {
+
+    $interestStmt->bind_param(
+        "i",
+        $userId
+    );
+
+
+    $interestStmt->execute();
+
+
+    $interestResult =
+        $interestStmt
+            ->get_result();
+
+
+    while (
+        $row =
+            $interestResult
+                ->fetch_assoc()
+    ) {
+
+        $interest =
+            trim(
+                $row["interest"]
+                ?? ""
+            );
+
+
+        if ($interest !== "") {
+
+            $interests[] =
+                $interest;
+        }
+    }
+
+
+    $interestStmt->close();
+}
+
+
+/* ORGANIZATIONS */
+
+$organizations = [];
+
+
+$organizationStmt =
+    $conn->prepare("
+        SELECT
+
+            id,
+            name,
+            type,
+            position,
+            participation_date,
+            description
+
+        FROM organizations
+
+        WHERE user_id = ?
+
+        ORDER BY
+
+            CASE
+                WHEN participation_date IS NULL
+                    THEN 1
+                ELSE 0
+            END,
+
+            participation_date DESC,
+            id DESC
+
+        LIMIT 5
+    ");
+
+
+if ($organizationStmt) {
+
+    $organizationStmt->bind_param(
+        "i",
+        $userId
+    );
+
+
+    $organizationStmt->execute();
+
+
+    $organizationResult =
+        $organizationStmt
+            ->get_result();
+
+
+    while (
+        $row =
+            $organizationResult
+                ->fetch_assoc()
+    ) {
+
+        $organizations[] =
+            $row;
+    }
+
+
+    $organizationStmt->close();
+}
+
+
+/* ACCOMPLISHMENTS */
+
+$accomplishmentCount =
+    0;
+
+
+$accomplishmentStmt =
+    $conn->prepare("
+        SELECT COUNT(*) AS total
+
+        FROM accomplishments
+
+        WHERE user_id = ?
+    ");
+
+
+if ($accomplishmentStmt) {
+
+    $accomplishmentStmt->bind_param(
+        "i",
+        $userId
+    );
+
+
+    $accomplishmentStmt->execute();
+
+
+    $accomplishmentRow =
+        $accomplishmentStmt
+            ->get_result()
+            ->fetch_assoc();
+
+
+    $accomplishmentCount =
+        (int) (
+            $accomplishmentRow["total"]
+            ?? 0
+        );
+
+
+    $accomplishmentStmt->close();
+}
+
+
+/* PROFILE COMPLETION */
+
+$completionFields = [
+
+    $firstName,
+
+    trim(
+        $student["last_name"]
+        ?? ""
+    ),
+
+    $studentId,
+
+    $phone,
+
+    $birthdate,
+
+    $gender,
+
+    $address,
+
+    $program,
+
+    $yearLevel,
+
+    $section,
+
+    $college,
+
+    $campus,
+
+    $aboutMe
+];
+
+
+$completedFields =
+    0;
+
+
+foreach (
+    $completionFields
+    as $field
+) {
+
+    if (
+        trim(
+            (string) $field
+        ) !== ""
+    ) {
+
+        $completedFields++;
     }
 }
 
 
-/* =========================================================
-   DISPLAY HELPER
-========================================================= */
-
-function profileValue(
-    ?string $value,
-    string $fallback = "Not added"
-): string {
-
-    $value =
-        trim(
-            (string) $value
-        );
+$totalCompletionFields =
+    count(
+        $completionFields
+    );
 
 
-    return $value !== ""
-        ? $value
-        : $fallback;
+if (
+    count($education) > 0
+) {
+
+    $completedFields++;
 }
+
+
+$totalCompletionFields++;
+
+
+if (
+    count($hobbies) > 0 ||
+    count($interests) > 0
+) {
+
+    $completedFields++;
+}
+
+
+$totalCompletionFields++;
+
+
+if (
+    count($organizations) > 0
+) {
+
+    $completedFields++;
+}
+
+
+$totalCompletionFields++;
+
+
+if (
+    $accomplishmentCount > 0
+) {
+
+    $completedFields++;
+}
+
+
+$totalCompletionFields++;
+
+
+$profileCompletion =
+    $totalCompletionFields > 0
+        ? (int) round(
+            (
+                $completedFields /
+                $totalCompletionFields
+            ) * 100
+        )
+        : 0;
+
+
+$profileCompletion =
+    max(
+        0,
+        min(
+            100,
+            $profileCompletion
+        )
+    );
+
+
+/* LABELS */
+
+$educationLabels = [
+
+    "elementary" =>
+        "Elementary",
+
+    "junior_high" =>
+        "Junior High School",
+
+    "senior_high" =>
+        "Senior High School",
+
+    "college" =>
+        "College",
+
+    "other" =>
+        "Other"
+];
+
+
+$organizationLabels = [
+
+    "organization" =>
+        "Organization",
+
+    "club" =>
+        "Club",
+
+    "student_government" =>
+        "Student Government",
+
+    "event" =>
+        "Event"
+];
 
 ?>
 
@@ -545,15 +946,456 @@ function profileValue(
         href="student_profile.css"
     >
 
+
+    <style>
+
+        .profile-photo.real-photo {
+
+            padding: 0;
+
+            overflow: hidden;
+        }
+
+
+        .profile-photo.real-photo img {
+
+            width: 100%;
+            height: 100%;
+
+            display: block;
+
+            object-fit: cover;
+        }
+
+
+        .about-me-text {
+
+            color: #68766f;
+
+            font-size: 10px;
+
+            line-height: 1.8;
+
+            white-space: normal;
+        }
+
+
+        .section-heading.with-action {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content:
+                space-between;
+
+            gap: 20px;
+        }
+
+
+        .section-action {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            padding:
+                8px 12px;
+
+            color: #006b3f;
+
+            background: white;
+
+            border:
+                1px solid #cfe1d6;
+
+            border-radius: 7px;
+
+            font-size: 8px;
+
+            font-weight: 700;
+
+            text-decoration: none;
+
+            white-space: nowrap;
+        }
+
+
+        .section-action:hover {
+
+            background: #e6f3eb;
+        }
+
+
+        .interest-groups {
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 20px;
+        }
+
+
+        .interest-group h3 {
+
+            margin-bottom: 10px;
+
+            color: #003d24;
+
+            font-size: 10px;
+
+            font-weight: 700;
+        }
+
+
+        .interest-tags {
+
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 8px;
+        }
+
+
+        .interest-tag {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            padding:
+                7px 11px;
+
+            color: #006b3f;
+
+            background: #e6f3eb;
+
+            border:
+                1px solid #cfe4d7;
+
+            border-radius: 30px;
+
+            font-size: 9px;
+
+            font-weight: 700;
+        }
+
+
+        .empty-profile-section {
+
+            padding: 22px;
+
+            text-align: center;
+
+            background: #f5f8f6;
+
+            border:
+                1px solid #e1e9e4;
+
+            border-radius: 10px;
+        }
+
+
+        .empty-profile-section p {
+
+            color: #68766f;
+
+            font-size: 10px;
+
+            line-height: 1.7;
+        }
+
+
+        .empty-profile-section a {
+
+            display: inline-block;
+
+            margin-top: 9px;
+
+            color: #006b3f;
+
+            font-size: 9px;
+
+            font-weight: 700;
+
+            text-decoration: none;
+        }
+
+
+        .education-achievement {
+
+            margin-top: 7px;
+
+            color: #68766f;
+
+            font-size: 9px;
+
+            line-height: 1.6;
+        }
+
+
+        .organization-list {
+
+            display: flex;
+
+            flex-direction: column;
+
+            border-top:
+                1px solid #e1e9e4;
+        }
+
+
+        .organization-item {
+
+            display: flex;
+
+            align-items: flex-start;
+
+            gap: 15px;
+
+            padding:
+                17px 5px;
+
+            border-bottom:
+                1px solid #e1e9e4;
+        }
+
+
+        .organization-item:last-child {
+
+            border-bottom: none;
+        }
+
+
+        .organization-icon {
+
+            width: 38px;
+            height: 38px;
+
+            display: grid;
+
+            place-items: center;
+
+            flex-shrink: 0;
+
+            color: #006b3f;
+
+            background: #e6f3eb;
+
+            border-radius: 9px;
+
+            font-size: 9px;
+
+            font-weight: 800;
+        }
+
+
+        .organization-content {
+
+            flex: 1;
+        }
+
+
+        .organization-type {
+
+            display: inline-flex;
+
+            margin-bottom: 5px;
+
+            color: #006b3f;
+
+            font-size: 8px;
+
+            font-weight: 700;
+
+            text-transform: uppercase;
+        }
+
+
+        .organization-content h3 {
+
+            color: #003d24;
+
+            font-size: 11px;
+
+            font-weight: 700;
+        }
+
+
+        .organization-meta {
+
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 7px;
+
+            margin-top: 5px;
+
+            color: #68766f;
+
+            font-size: 8px;
+        }
+
+
+        .organization-description {
+
+            margin-top: 7px;
+
+            color: #68766f;
+
+            font-size: 9px;
+
+            line-height: 1.6;
+        }
+
+
+        .profile-stats {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    4,
+                    minmax(
+                        0,
+                        1fr
+                    )
+                );
+
+            gap: 10px;
+
+            margin-bottom: 22px;
+        }
+
+
+        .profile-stat {
+
+            padding: 16px;
+
+            background: white;
+
+            border:
+                1px solid #e1e9e4;
+
+            border-radius: 10px;
+        }
+
+
+        .profile-stat span {
+
+            display: block;
+
+            color: #68766f;
+
+            font-size: 7px;
+
+            font-weight: 700;
+
+            letter-spacing: .5px;
+
+            text-transform: uppercase;
+        }
+
+
+        .profile-stat strong {
+
+            display: block;
+
+            margin-top: 6px;
+
+            color: #006b3f;
+
+            font-size: 19px;
+        }
+
+
+        .profile-completion-bar {
+
+            height: 7px;
+
+            margin-top: 9px;
+
+            overflow: hidden;
+
+            background: #e6ece8;
+
+            border-radius: 20px;
+        }
+
+
+        .profile-completion-fill {
+
+            height: 100%;
+
+            background: #006b3f;
+
+            border-radius: inherit;
+        }
+
+
+        @media (
+            max-width: 750px
+        ) {
+
+            .profile-stats {
+
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(
+                            0,
+                            1fr
+                        )
+                    );
+            }
+
+        }
+
+
+        @media (
+            max-width: 500px
+        ) {
+
+            .profile-stats {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+
+            .section-heading.with-action {
+
+                align-items:
+                    flex-start;
+
+                flex-direction:
+                    column;
+            }
+
+
+            .organization-item {
+
+                align-items:
+                    flex-start;
+            }
+
+        }
+
+    </style>
+
+
 </head>
 
 
 <body>
 
 
-<!-- =================================
-     NAVIGATION
-================================= -->
+<!-- NAVIGATION -->
 
 <header class="navbar">
 
@@ -562,7 +1404,7 @@ function profileValue(
 
 
         <a
-            href="student_dashboard.php"
+            href="index.php"
             class="brand"
         >
 
@@ -593,6 +1435,7 @@ function profileValue(
 
         <nav class="desktop-nav">
 
+
             <a
                 href="student_dashboard.php"
                 class="nav-link"
@@ -600,12 +1443,14 @@ function profileValue(
                 Dashboard
             </a>
 
+
             <a
                 href="student_profile.php"
-                class="nav-link active"
+                class="nav-link"
             >
                 Profile
             </a>
+
 
             <a
                 href="accomplishments.php"
@@ -613,12 +1458,15 @@ function profileValue(
             >
                 Accomplishments
             </a>
-    <a
-        href="organizations.php"
-        class="nav-link"
-    >
-        Organizations
-    </a>
+
+
+            <a
+                href="organizations.php"
+                class="nav-link"
+            >
+                Organizations
+            </a>
+
 
             <a
                 href="privacy.php"
@@ -627,12 +1475,14 @@ function profileValue(
                 Privacy
             </a>
 
+
             <a
                 href="settings.php"
                 class="nav-link"
             >
                 Settings
             </a>
+
 
         </nav>
 
@@ -651,16 +1501,12 @@ function profileValue(
 </header>
 
 
-<!-- =================================
-     MAIN PROFILE
-================================= -->
+<!-- PROFILE -->
 
 <main class="profile-page">
 
 
-    <!-- =================================
-         PAGE HEADER
-    ================================= -->
+    <!-- HEADER -->
 
     <section class="page-header">
 
@@ -680,8 +1526,8 @@ function profileValue(
 
             <p>
                 View and manage your personal,
-                academic, family, and educational
-                information.
+                academic, family, educational,
+                hobbies, and activity information.
             </p>
 
 
@@ -713,9 +1559,7 @@ function profileValue(
     </section>
 
 
-    <!-- =================================
-         PROFILE HEADER
-    ================================= -->
+    <!-- PROFILE HEADER -->
 
     <section class="profile-header-card">
 
@@ -723,28 +1567,29 @@ function profileValue(
         <div class="profile-photo-container">
 
 
-            <?php if ($profilePhoto !== ""): ?>
+            <?php if (
+                $profilePhoto !== ""
+            ): ?>
 
 
                 <div
-                    class="profile-photo"
-                    style="
-                        background-image:
-                            url('<?= htmlspecialchars(
-                                $profilePhoto,
-                                ENT_QUOTES,
-                                "UTF-8"
-                            ) ?>');
-
-                        background-size: cover;
-                        background-position: center;
-
-                        color: transparent;
+                    class="
+                        profile-photo
+                        real-photo
                     "
                 >
-                    <?= htmlspecialchars(
-                        $avatarInitial
-                    ) ?>
+
+
+                    <img
+                        src="<?= htmlspecialchars(
+                            $profilePhoto,
+                            ENT_QUOTES,
+                            "UTF-8"
+                        ) ?>"
+                        alt="Profile photo"
+                    >
+
+
                 </div>
 
 
@@ -753,24 +1598,18 @@ function profileValue(
 
                 <div class="profile-photo">
 
+
                     <span>
                         <?= htmlspecialchars(
                             $avatarInitial
                         ) ?>
                     </span>
 
+
                 </div>
 
 
             <?php endif; ?>
-
-
-            <a
-                href="edit_profile.php"
-                class="photo-button"
-            >
-                Edit Profile
-            </a>
 
 
         </div>
@@ -792,12 +1631,14 @@ function profileValue(
 
 
             <p>
+
                 <?= htmlspecialchars(
                     profileValue(
                         $program,
                         "Program not added"
                     )
                 ) ?>
+
             </p>
 
 
@@ -805,29 +1646,50 @@ function profileValue(
 
 
                 <span>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $studentId,
                             "Student ID not added"
                         )
                     ) ?>
+
                 </span>
 
 
-                <span>
-                    <?= htmlspecialchars(
-                        profileValue(
-                            $yearLevel,
-                            "Year level not added"
-                        )
-                    ) ?>
-                </span>
+                <?php if (
+                    $yearLevel !== ""
+                ): ?>
+
+
+                    <span>
+                        <?= htmlspecialchars(
+                            $yearLevel
+                        ) ?>
+                    </span>
+
+
+                <?php endif; ?>
+
+
+                <?php if (
+                    $section !== ""
+                ): ?>
+
+
+                    <span>
+                        Section
+                        <?= htmlspecialchars(
+                            $section
+                        ) ?>
+                    </span>
+
+
+                <?php endif; ?>
 
 
                 <span class="profile-status">
-                    <?= htmlspecialchars(
-                        $accountStatusDisplay
-                    ) ?>
+                    Active
                 </span>
 
 
@@ -844,13 +1706,8 @@ function profileValue(
                 href="digital_portfolio.php"
                 class="portfolio-button"
             >
-
                 View Digital Portfolio
-
-                <span>
-                    →
-                </span>
-
+                <span>→</span>
             </a>
 
 
@@ -860,14 +1717,107 @@ function profileValue(
     </section>
 
 
-    <!-- =================================
-         ABOUT ME
-    ================================= -->
+    <!-- PROFILE SUMMARY -->
+
+    <section class="profile-stats">
+
+
+        <div class="profile-stat">
+
+
+            <span>
+                Profile Completion
+            </span>
+
+
+            <strong>
+                <?= $profileCompletion ?>%
+            </strong>
+
+
+            <div class="profile-completion-bar">
+
+
+                <div
+                    class="profile-completion-fill"
+                    style="width: <?= $profileCompletion ?>%;"
+                ></div>
+
+
+            </div>
+
+
+        </div>
+
+
+        <div class="profile-stat">
+
+
+            <span>
+                Hobbies & Interests
+            </span>
+
+
+            <strong>
+
+                <?= count($hobbies) +
+                    count($interests)
+                ?>
+
+            </strong>
+
+
+        </div>
+
+
+        <div class="profile-stat">
+
+
+            <span>
+                Organizations
+            </span>
+
+
+            <strong>
+                <?= count(
+                    $organizations
+                ) ?>
+            </strong>
+
+
+        </div>
+
+
+        <div class="profile-stat">
+
+
+            <span>
+                Accomplishments
+            </span>
+
+
+            <strong>
+                <?= $accomplishmentCount ?>
+            </strong>
+
+
+        </div>
+
+
+    </section>
+
+
+    <!-- ABOUT ME -->
 
     <section class="information-card">
 
 
-        <div class="section-heading">
+        <div
+            class="
+                section-heading
+                with-action
+            "
+        >
 
 
             <div>
@@ -879,61 +1829,77 @@ function profileValue(
 
 
                 <h2>
-                    Profile Introduction
+                    About Me
                 </h2>
 
 
             </div>
 
 
+            <a
+                href="edit_profile.php"
+                class="section-action"
+            >
+                Edit
+            </a>
+
+
         </div>
 
 
-        <div class="information-grid">
+        <?php if (
+            $aboutMe !== ""
+        ): ?>
 
 
-            <div
-                class="
-                    information-item
-                    full-width
-                "
-            >
+            <p class="about-me-text">
+
+                <?= nl2br(
+                    htmlspecialchars(
+                        $aboutMe
+                    )
+                ) ?>
+
+            </p>
 
 
-                <span class="information-label">
-                    About Me
-                </span>
+        <?php else: ?>
+
+
+            <div class="empty-profile-section">
 
 
                 <p>
-                    <?= nl2br(
-                        htmlspecialchars(
-                            profileValue(
-                                $aboutMe,
-                                "No introduction added yet."
-                            )
-                        )
-                    ) ?>
+                    You have not added an
+                    About Me description yet.
                 </p>
+
+
+                <a href="edit_profile.php">
+                    Add About Me →
+                </a>
 
 
             </div>
 
 
-        </div>
+        <?php endif; ?>
 
 
     </section>
 
 
-    <!-- =================================
-         PERSONAL INFORMATION
-    ================================= -->
+    <!-- PERSONAL INFORMATION -->
 
     <section class="information-card">
 
 
-        <div class="section-heading">
+        <div
+            class="
+                section-heading
+                with-action
+            "
+        >
 
 
             <div>
@@ -952,6 +1918,14 @@ function profileValue(
             </div>
 
 
+            <a
+                href="edit_profile.php"
+                class="section-action"
+            >
+                Edit
+            </a>
+
+
         </div>
 
 
@@ -962,55 +1936,13 @@ function profileValue(
 
 
                 <span class="information-label">
-                    First Name
+                    Full Name
                 </span>
 
 
                 <p>
                     <?= htmlspecialchars(
-                        profileValue(
-                            $firstName
-                        )
-                    ) ?>
-                </p>
-
-
-            </div>
-
-
-            <div class="information-item">
-
-
-                <span class="information-label">
-                    Middle Name
-                </span>
-
-
-                <p>
-                    <?= htmlspecialchars(
-                        profileValue(
-                            $middleName
-                        )
-                    ) ?>
-                </p>
-
-
-            </div>
-
-
-            <div class="information-item">
-
-
-                <span class="information-label">
-                    Last Name
-                </span>
-
-
-                <p>
-                    <?= htmlspecialchars(
-                        profileValue(
-                            $lastName
-                        )
+                        $fullName
                     ) ?>
                 </p>
 
@@ -1027,11 +1959,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $studentId
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1047,11 +1981,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $email
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1067,11 +2003,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $phone
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1088,9 +2026,7 @@ function profileValue(
 
                 <p>
                     <?= htmlspecialchars(
-                        profileValue(
-                            $birthdateDisplay
-                        )
+                        $birthdateDisplay
                     ) ?>
                 </p>
 
@@ -1107,11 +2043,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $gender
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1132,6 +2070,7 @@ function profileValue(
 
 
                 <p>
+
                     <?= nl2br(
                         htmlspecialchars(
                             profileValue(
@@ -1139,6 +2078,7 @@ function profileValue(
                             )
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1151,14 +2091,17 @@ function profileValue(
     </section>
 
 
-    <!-- =================================
-         ACADEMIC INFORMATION
-    ================================= -->
+    <!-- ACADEMIC INFORMATION -->
 
     <section class="information-card">
 
 
-        <div class="section-heading">
+        <div
+            class="
+                section-heading
+                with-action
+            "
+        >
 
 
             <div>
@@ -1175,6 +2118,14 @@ function profileValue(
 
 
             </div>
+
+
+            <a
+                href="edit_profile.php"
+                class="section-action"
+            >
+                Edit
+            </a>
 
 
         </div>
@@ -1197,11 +2148,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $program
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1217,11 +2170,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $yearLevel
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1237,11 +2192,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $section
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1257,11 +2214,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $college
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1277,11 +2236,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $campus
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1294,14 +2255,17 @@ function profileValue(
     </section>
 
 
-    <!-- =================================
-         FAMILY INFORMATION
-    ================================= -->
+    <!-- FAMILY INFORMATION -->
 
     <section class="information-card">
 
 
-        <div class="section-heading">
+        <div
+            class="
+                section-heading
+                with-action
+            "
+        >
 
 
             <div>
@@ -1313,11 +2277,19 @@ function profileValue(
 
 
                 <h2>
-                    Family Details
+                    Parent & Guardian Details
                 </h2>
 
 
             </div>
+
+
+            <a
+                href="edit_profile.php"
+                class="section-action"
+            >
+                Edit
+            </a>
 
 
         </div>
@@ -1335,11 +2307,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $fatherName
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1355,11 +2329,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $motherName
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1370,16 +2346,18 @@ function profileValue(
 
 
                 <span class="information-label">
-                    Guardian's Name
+                    Guardian Name
                 </span>
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $guardianName
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1395,11 +2373,13 @@ function profileValue(
 
 
                 <p>
+
                     <?= htmlspecialchars(
                         profileValue(
                             $guardianContact
                         )
                     ) ?>
+
                 </p>
 
 
@@ -1412,14 +2392,17 @@ function profileValue(
     </section>
 
 
-    <!-- =================================
-         EDUCATIONAL BACKGROUND
-    ================================= -->
+    <!-- EDUCATIONAL BACKGROUND -->
 
     <section class="information-card">
 
 
-        <div class="section-heading">
+        <div
+            class="
+                section-heading
+                with-action
+            "
+        >
 
 
             <div>
@@ -1431,123 +2414,646 @@ function profileValue(
 
 
                 <h2>
-                    Previous Education
+                    Education History
                 </h2>
 
 
             </div>
 
 
-        </div>
-
-
-        <div class="education-list">
-
-
-            <div class="education-item">
-
-
-                <div class="education-number">
-                    01
-                </div>
-
-
-                <div class="education-details">
-
-
-                    <span>
-                        ELEMENTARY
-                    </span>
-
-
-                    <h3>
-                        <?= htmlspecialchars(
-                            profileValue(
-                                $elementarySchool
-                            )
-                        ) ?>
-                    </h3>
-
-
-                </div>
-
-
-            </div>
-
-
-            <div class="education-item">
-
-
-                <div class="education-number">
-                    02
-                </div>
-
-
-                <div class="education-details">
-
-
-                    <span>
-                        JUNIOR HIGH SCHOOL
-                    </span>
-
-
-                    <h3>
-                        <?= htmlspecialchars(
-                            profileValue(
-                                $juniorHighSchool
-                            )
-                        ) ?>
-                    </h3>
-
-
-                </div>
-
-
-            </div>
-
-
-            <div class="education-item">
-
-
-                <div class="education-number">
-                    03
-                </div>
-
-
-                <div class="education-details">
-
-
-                    <span>
-                        SENIOR HIGH SCHOOL
-                    </span>
-
-
-                    <h3>
-                        <?= htmlspecialchars(
-                            profileValue(
-                                $seniorHighSchool
-                            )
-                        ) ?>
-                    </h3>
-
-
-                </div>
-
-
-            </div>
+            <a
+                href="edit_profile.php"
+                class="section-action"
+            >
+                Manage
+            </a>
 
 
         </div>
+
+
+        <?php if (
+            count($education) > 0
+        ): ?>
+
+
+            <div class="education-list">
+
+
+                <?php foreach (
+                    $education
+                    as $index => $school
+                ): ?>
+
+
+                    <?php
+
+                    $educationLevel =
+                        $school[
+                            "education_level"
+                        ] ?? "other";
+
+
+                    $educationLabel =
+                        $educationLabels[
+                            $educationLevel
+                        ] ?? "Other";
+
+
+                    $educationYears =
+                        educationYearRange(
+                            $school[
+                                "start_year"
+                            ] ?? "",
+
+                            $school[
+                                "end_year"
+                            ] ?? ""
+                        );
+
+
+                    $achievements =
+                        trim(
+                            $school[
+                                "achievements"
+                            ] ?? ""
+                        );
+
+                    ?>
+
+
+                    <div class="education-item">
+
+
+                        <div class="education-number">
+
+                            <?= str_pad(
+                                (string) (
+                                    $index + 1
+                                ),
+                                2,
+                                "0",
+                                STR_PAD_LEFT
+                            ) ?>
+
+                        </div>
+
+
+                        <div class="education-details">
+
+
+                            <span>
+
+                                <?= htmlspecialchars(
+                                    strtoupper(
+                                        $educationLabel
+                                    )
+                                ) ?>
+
+                            </span>
+
+
+                            <h3>
+
+                                <?= htmlspecialchars(
+                                    profileValue(
+                                        $school[
+                                            "school_name"
+                                        ] ?? ""
+                                    )
+                                ) ?>
+
+                            </h3>
+
+
+                            <?php if (
+                                $educationYears !== ""
+                            ): ?>
+
+
+                                <p>
+
+                                    <?= htmlspecialchars(
+                                        $educationYears
+                                    ) ?>
+
+                                </p>
+
+
+                            <?php endif; ?>
+
+
+                            <?php if (
+                                $achievements !== ""
+                            ): ?>
+
+
+                                <p class="education-achievement">
+
+                                    <?= nl2br(
+                                        htmlspecialchars(
+                                            $achievements
+                                        )
+                                    ) ?>
+
+                                </p>
+
+
+                            <?php endif; ?>
+
+
+                        </div>
+
+
+                    </div>
+
+
+                <?php endforeach; ?>
+
+
+            </div>
+
+
+        <?php else: ?>
+
+
+            <div class="empty-profile-section">
+
+
+                <p>
+                    No educational background
+                    has been added yet.
+                </p>
+
+
+                <a href="edit_profile.php">
+                    Add Education →
+                </a>
+
+
+            </div>
+
+
+        <?php endif; ?>
 
 
     </section>
 
 
-    <!-- =================================
-         BOTTOM ACTIONS
-    ================================= -->
+    <!-- HOBBIES AND INTERESTS -->
 
-    <section class="bottom-actions">
+    <section class="information-card">
+
+
+        <div
+            class="
+                section-heading
+                with-action
+            "
+        >
+
+
+            <div>
+
+
+                <span class="section-label">
+                    HOBBIES & INTERESTS
+                </span>
+
+
+                <h2>
+                    Personal Interests
+                </h2>
+
+
+            </div>
+
+
+            <a
+                href="hobbies.php"
+                class="section-action"
+            >
+                Manage
+            </a>
+
+
+        </div>
+
+
+        <?php if (
+            count($hobbies) > 0 ||
+            count($interests) > 0
+        ): ?>
+
+
+            <div class="interest-groups">
+
+
+                <?php if (
+                    count($hobbies) > 0
+                ): ?>
+
+
+                    <div class="interest-group">
+
+
+                        <h3>
+                            Hobbies
+                        </h3>
+
+
+                        <div class="interest-tags">
+
+
+                            <?php foreach (
+                                $hobbies
+                                as $hobby
+                            ): ?>
+
+
+                                <span class="interest-tag">
+
+                                    <?= htmlspecialchars(
+                                        $hobby
+                                    ) ?>
+
+                                </span>
+
+
+                            <?php endforeach; ?>
+
+
+                        </div>
+
+
+                    </div>
+
+
+                <?php endif; ?>
+
+
+                <?php if (
+                    count($interests) > 0
+                ): ?>
+
+
+                    <div class="interest-group">
+
+
+                        <h3>
+                            Interests
+                        </h3>
+
+
+                        <div class="interest-tags">
+
+
+                            <?php foreach (
+                                $interests
+                                as $interest
+                            ): ?>
+
+
+                                <span class="interest-tag">
+
+                                    <?= htmlspecialchars(
+                                        $interest
+                                    ) ?>
+
+                                </span>
+
+
+                            <?php endforeach; ?>
+
+
+                        </div>
+
+
+                    </div>
+
+
+                <?php endif; ?>
+
+
+            </div>
+
+
+        <?php else: ?>
+
+
+            <div class="empty-profile-section">
+
+
+                <p>
+                    No hobbies or interests
+                    have been added yet.
+                </p>
+
+
+                <a href="hobbies.php">
+                    Add Hobbies & Interests →
+                </a>
+
+
+            </div>
+
+
+        <?php endif; ?>
+
+
+    </section>
+
+
+    <!-- ORGANIZATIONS -->
+
+    <section class="information-card">
+
+
+        <div
+            class="
+                section-heading
+                with-action
+            "
+        >
+
+
+            <div>
+
+
+                <span class="section-label">
+                    ORGANIZATIONS & ACTIVITIES
+                </span>
+
+
+                <h2>
+                    Student Involvement
+                </h2>
+
+
+            </div>
+
+
+            <a
+                href="organizations.php"
+                class="section-action"
+            >
+                Manage
+            </a>
+
+
+        </div>
+
+
+        <?php if (
+            count($organizations) > 0
+        ): ?>
+
+
+            <div class="organization-list">
+
+
+                <?php foreach (
+                    $organizations
+                    as $organization
+                ): ?>
+
+
+                    <?php
+
+                    $organizationType =
+                        $organization[
+                            "type"
+                        ] ?? "organization";
+
+
+                    $organizationLabel =
+                        $organizationLabels[
+                            $organizationType
+                        ] ?? "Organization";
+
+
+                    $organizationPosition =
+                        trim(
+                            $organization[
+                                "position"
+                            ] ?? ""
+                        );
+
+
+                    $organizationDate =
+                        trim(
+                            $organization[
+                                "participation_date"
+                            ] ?? ""
+                        );
+
+
+                    $organizationDescription =
+                        trim(
+                            $organization[
+                                "description"
+                            ] ?? ""
+                        );
+
+
+                    $organizationDateDisplay =
+                        "";
+
+
+                    if (
+                        $organizationDate !== ""
+                    ) {
+
+                        $dateTimestamp =
+                            strtotime(
+                                $organizationDate
+                            );
+
+
+                        if (
+                            $dateTimestamp !== false
+                        ) {
+
+                            $organizationDateDisplay =
+                                date(
+                                    "F j, Y",
+                                    $dateTimestamp
+                                );
+                        }
+                    }
+
+                    ?>
+
+
+                    <div class="organization-item">
+
+
+                        <div class="organization-icon">
+
+                            <?= htmlspecialchars(
+                                strtoupper(
+                                    substr(
+                                        $organizationLabel,
+                                        0,
+                                        1
+                                    )
+                                )
+                            ) ?>
+
+                        </div>
+
+
+                        <div class="organization-content">
+
+
+                            <span class="organization-type">
+
+                                <?= htmlspecialchars(
+                                    $organizationLabel
+                                ) ?>
+
+                            </span>
+
+
+                            <h3>
+
+                                <?= htmlspecialchars(
+                                    $organization[
+                                        "name"
+                                    ]
+                                ) ?>
+
+                            </h3>
+
+
+                            <?php if (
+                                $organizationPosition !== "" ||
+                                $organizationDateDisplay !== ""
+                            ): ?>
+
+
+                                <div class="organization-meta">
+
+
+                                    <?php if (
+                                        $organizationPosition !== ""
+                                    ): ?>
+
+
+                                        <span>
+
+                                            <?= htmlspecialchars(
+                                                $organizationPosition
+                                            ) ?>
+
+                                        </span>
+
+
+                                    <?php endif; ?>
+
+
+                                    <?php if (
+                                        $organizationPosition !== "" &&
+                                        $organizationDateDisplay !== ""
+                                    ): ?>
+
+                                        <span>•</span>
+
+                                    <?php endif; ?>
+
+
+                                    <?php if (
+                                        $organizationDateDisplay !== ""
+                                    ): ?>
+
+
+                                        <span>
+
+                                            <?= htmlspecialchars(
+                                                $organizationDateDisplay
+                                            ) ?>
+
+                                        </span>
+
+
+                                    <?php endif; ?>
+
+
+                                </div>
+
+
+                            <?php endif; ?>
+
+
+                            <?php if (
+                                $organizationDescription !== ""
+                            ): ?>
+
+
+                                <p class="organization-description">
+
+                                    <?= nl2br(
+                                        htmlspecialchars(
+                                            $organizationDescription
+                                        )
+                                    ) ?>
+
+                                </p>
+
+
+                            <?php endif; ?>
+
+
+                        </div>
+
+
+                    </div>
+
+
+                <?php endforeach; ?>
+
+
+            </div>
+
+
+            <a
+                href="organizations.php"
+                class="section-action"
+                style="margin-top: 15px;"
+            >
+                View All Organizations →
+            </a>
+
+
+        <?php else: ?>
+
+
+            <div class="empty-profile-section">
+
+
+                <p>
+                    No organizations or activities
+                    have been added yet.
+                </p>
+
+
+                <a href="organizations.php">
+                    Add Organization or Activity →
+                </a>
+
+
+            </div>
+
+
+        <?php endif; ?>
+
+
+    </section>
+
+
+    <!-- BOTTOM ACTIONS -->
+
+    <div class="bottom-actions">
 
 
         <a
@@ -1559,30 +3065,36 @@ function profileValue(
 
 
         <a
-            href="privacy.php"
+            href="hobbies.php"
             class="secondary-button"
         >
-            Manage Visibility
+            Manage Hobbies
+        </a>
+
+
+        <a
+            href="organizations.php"
+            class="secondary-button"
+        >
+            Manage Organizations
         </a>
 
 
         <a
             href="digital_portfolio.php"
-            class="portfolio-button"
+            class="secondary-button"
         >
-            View Digital Portfolio →
+            Digital Portfolio
         </a>
 
 
-    </section>
+    </div>
 
 
 </main>
 
 
-<!-- =================================
-     FOOTER
-================================= -->
+<!-- FOOTER -->
 
 <footer class="footer">
 
@@ -1598,6 +3110,9 @@ function profileValue(
 
 
 </footer>
+
+
+<script src="main.js"></script>
 
 
 </body>
