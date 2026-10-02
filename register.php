@@ -239,7 +239,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Register | StudentProfiler</title>
+    <title>Register | CVSWHO</title>
 
     <link
         rel="preconnect"
@@ -280,13 +280,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 >
 
                     <div class="brand-mark">
-                        SP
+                        C
                     </div>
 
                     <div class="brand-text">
 
                         <span class="brand-name">
-                            StudentProfiler
+                            CVSWHO
                         </span>
 
                         <span class="brand-subtitle">
@@ -402,7 +402,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     >
 
                     <span class="input-help">
-                        Example: lynchariel.esplana@cvsu.edu.ph
+                        Example: firstname.lastname@cvsu.edu.ph
                     </span>
 
                 </div>
