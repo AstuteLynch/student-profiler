@@ -1,233 +1,647 @@
 <?php
 
-$accomplishment = [
-    "title" => "Academic Achievement",
-    "category" => "Academic",
-    "description" => "Recognized for academic performance and participation in academic activities.",
-    "date" => "2025-06-15",
-    "organization" => "Cavite State University",
-    "document" => "Certificate of Recognition.pdf"
+session_start();
+
+require_once "db.php";
+
+
+if (!isset($_SESSION["user_id"])) {
+
+    header("Location: login.php");
+    exit;
+}
+
+
+$userId =
+    (int) $_SESSION["user_id"];
+
+
+$accomplishmentId =
+    isset($_GET["id"])
+        ? (int) $_GET["id"]
+        : 0;
+
+
+if ($accomplishmentId <= 0) {
+
+    header(
+        "Location: accomplishments.php"
+    );
+
+    exit;
+}
+
+
+/* =========================================================
+   CSRF
+========================================================= */
+
+if (
+    empty(
+        $_SESSION[
+            "accomplishment_csrf"
+        ]
+    )
+) {
+
+    $_SESSION[
+        "accomplishment_csrf"
+    ] =
+        bin2hex(
+            random_bytes(32)
+        );
+}
+
+
+$csrfToken =
+    $_SESSION[
+        "accomplishment_csrf"
+    ];
+
+
+/* =========================================================
+   LOAD RECORD OWNED BY CURRENT USER
+========================================================= */
+
+$stmt =
+    $conn->prepare("
+        SELECT
+
+            id,
+            title,
+            category,
+            description,
+            date_achieved,
+            organization,
+            document_path,
+            created_at,
+            updated_at
+
+        FROM accomplishments
+
+        WHERE
+            id = ?
+            AND user_id = ?
+
+        LIMIT 1
+    ");
+
+
+if (!$stmt) {
+
+    die(
+        "Database error: " .
+        htmlspecialchars(
+            $conn->error
+        )
+    );
+}
+
+
+$stmt->bind_param(
+    "ii",
+    $accomplishmentId,
+    $userId
+);
+
+
+$stmt->execute();
+
+
+$accomplishment =
+    $stmt
+        ->get_result()
+        ->fetch_assoc();
+
+
+$stmt->close();
+
+
+if (!$accomplishment) {
+
+    http_response_code(404);
+
+    die(
+        "Accomplishment not found."
+    );
+}
+
+
+/* =========================================================
+   DELETE
+========================================================= */
+
+if (
+    $_SERVER["REQUEST_METHOD"]
+    === "POST" &&
+    ($_POST["action"] ?? "")
+        === "delete"
+) {
+
+    $submittedToken =
+        $_POST["csrf_token"]
+        ?? "";
+
+
+    if (
+        !hash_equals(
+            $csrfToken,
+            $submittedToken
+        )
+    ) {
+
+        die(
+            "Invalid request."
+        );
+    }
+
+
+    $documentPath =
+        trim(
+            $accomplishment[
+                "document_path"
+            ] ?? ""
+        );
+
+
+    $deleteStmt =
+        $conn->prepare("
+            DELETE FROM accomplishments
+
+            WHERE
+                id = ?
+                AND user_id = ?
+
+            LIMIT 1
+        ");
+
+
+    if (!$deleteStmt) {
+
+        die(
+            "Unable to delete accomplishment."
+        );
+    }
+
+
+    $deleteStmt->bind_param(
+        "ii",
+        $accomplishmentId,
+        $userId
+    );
+
+
+    if (
+        $deleteStmt->execute()
+    ) {
+
+        $deleteStmt->close();
+
+
+        if (
+            $documentPath !== "" &&
+            str_starts_with(
+                $documentPath,
+                "uploads/accomplishments/"
+            )
+        ) {
+
+            $absolutePath =
+                __DIR__ .
+                "/" .
+                $documentPath;
+
+
+            if (
+                is_file(
+                    $absolutePath
+                )
+            ) {
+
+                @unlink(
+                    $absolutePath
+                );
+            }
+        }
+
+
+        header(
+            "Location: accomplishments.php?deleted=1"
+        );
+
+        exit;
+    }
+
+
+    $deleteStmt->close();
+}
+
+
+/* =========================================================
+   LABELS
+========================================================= */
+
+$categoryLabels = [
+
+    "academic" =>
+        "Academic",
+
+    "non_academic" =>
+        "Non-Academic",
+
+    "competition" =>
+        "Competition",
+
+    "certification" =>
+        "Certification",
+
+    "other" =>
+        "Other"
 ];
+
+
+$categoryLabel =
+    $categoryLabels[
+        $accomplishment[
+            "category"
+        ]
+    ] ?? "Other";
+
+
+$dateDisplay =
+    !empty(
+        $accomplishment[
+            "date_achieved"
+        ]
+    )
+        ? date(
+            "F d, Y",
+            strtotime(
+                $accomplishment[
+                    "date_achieved"
+                ]
+            )
+        )
+        : "Not specified";
+
+
+$organizationDisplay =
+    trim(
+        $accomplishment[
+            "organization"
+        ] ?? ""
+    );
+
+
+if (
+    $organizationDisplay === ""
+) {
+
+    $organizationDisplay =
+        "Not specified";
+}
+
+
+$descriptionDisplay =
+    trim(
+        $accomplishment[
+            "description"
+        ] ?? ""
+    );
+
+
+if (
+    $descriptionDisplay === ""
+) {
+
+    $descriptionDisplay =
+        "No description was provided.";
+}
+
+
+$documentPath =
+    trim(
+        $accomplishment[
+            "document_path"
+        ] ?? ""
+    );
+
+
+$documentName =
+    $documentPath !== ""
+        ? basename(
+            $documentPath
+        )
+        : "";
 
 ?>
 
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Accomplishment Details | StudentProfiler</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <link rel="stylesheet" href="accomplishment_details.css">
+    <title>
+        Accomplishment Details | CVSWHO
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="accomplishment_details.css"
+    >
+
 </head>
+
 
 <body>
 
-    <header class="navbar">
 
-        <div class="nav-container">
+<header class="navbar">
 
-            <a href="student_dashboard.php" class="brand">
-
-                <div class="brand-mark">
-                    SP
-                </div>
-
-                <div class="brand-text">
-
-                    <span class="brand-name">
-                        StudentProfiler
-                    </span>
-
-                    <span class="brand-subtitle">
-                        Student Profile Management
-                    </span>
-
-                </div>
-
-            </a>
-
-            <nav class="desktop-nav">
-
-                <a href="student_dashboard.php" class="nav-link">
-                    Dashboard
-                </a>
-
-                <a href="student_profile.php" class="nav-link">
-                    Profile
-                </a>
-
-                <a href="accomplishments.php" class="nav-link active">
-                    Accomplishments
-                </a>
-
-                <a href="settings.php" class="nav-link">
-                    Settings
-                </a>
-
-            </nav>
-
-            <a href="login.php" class="logout-button">
-                Log out
-            </a>
-
-        </div>
-
-    </header>
+    <div class="nav-container">
 
 
-    <main class="details-page">
+        <a
+            href="index.php"
+            class="brand"
+        >
 
-        <section class="page-header">
+            <div class="brand-mark">
+                C
+            </div>
 
-            <div>
 
-                <span class="eyebrow">
-                    ACCOMPLISHMENTS
+            <div class="brand-text">
+
+                <span class="brand-name">
+                    CVSWHO
                 </span>
 
-                <h1>
-                    Accomplishment Details
-                </h1>
-
-                <p>
-                    View the complete information and supporting document for this accomplishment.
-                </p>
+                <span class="brand-subtitle">
+                    Student Profile Management
+                </span>
 
             </div>
 
-            <a href="accomplishments.php" class="back-button">
-                ← Back to Accomplishments
+        </a>
+
+
+        <nav class="desktop-nav">
+
+            <a
+                href="student_dashboard.php"
+                class="nav-link"
+            >
+                Dashboard
             </a>
 
-        </section>
+            <a
+                href="student_profile.php"
+                class="nav-link"
+            >
+                Profile
+            </a>
+
+            <a
+                href="accomplishments.php"
+                class="nav-link active"
+            >
+                Accomplishments
+            </a>
+
+            <a
+                href="privacy.php"
+                class="nav-link"
+            >
+                Privacy
+            </a>
+
+        </nav>
 
 
-        <div class="details-layout">
+        <a
+            href="student_dashboard.php?logout=1"
+            class="logout-button"
+        >
+            Log out
+        </a>
 
 
-            <div class="details-main">
+    </div>
+
+</header>
 
 
-                <section class="details-card">
+<main class="details-page">
 
-                    <div class="achievement-heading">
 
-                        <div class="achievement-icon">
-                            ✓
-                        </div>
+    <section class="page-header">
 
-                        <div class="achievement-title">
 
-                            <span class="category-label">
-                                <?php echo htmlspecialchars($accomplishment["category"]); ?>
-                            </span>
+        <div>
 
-                            <h2>
-                                <?php echo htmlspecialchars($accomplishment["title"]); ?>
-                            </h2>
+            <span class="eyebrow">
+                ACCOMPLISHMENTS
+            </span>
 
-                            <p>
-                                <?php echo date("F d, Y", strtotime($accomplishment["date"])); ?>
-                            </p>
+            <h1>
+                Accomplishment Details
+            </h1>
 
-                        </div>
+            <p>
+                View and manage this accomplishment.
+            </p>
 
+        </div>
+
+
+        <a
+            href="accomplishments.php"
+            class="back-button"
+        >
+            ← Back to Accomplishments
+        </a>
+
+
+    </section>
+
+
+    <div class="details-layout">
+
+
+        <div class="details-main">
+
+
+            <section class="details-card">
+
+
+                <div class="achievement-heading">
+
+
+                    <div class="achievement-icon">
+                        ✓
                     </div>
 
 
-                    <div class="information-section">
+                    <div class="achievement-title">
 
-                        <span class="section-label">
-                            ACHIEVEMENT INFORMATION
+
+                        <span class="category-label">
+                            <?= htmlspecialchars(
+                                $categoryLabel
+                            ) ?>
                         </span>
 
-                        <h3>
-                            Description
-                        </h3>
-
-                        <p class="description">
-                            <?php echo htmlspecialchars($accomplishment["description"]); ?>
-                        </p>
-
-                    </div>
-
-
-                    <div class="information-grid">
-
-                        <div class="information-item">
-
-                            <span>
-                                CATEGORY
-                            </span>
-
-                            <strong>
-                                <?php echo htmlspecialchars($accomplishment["category"]); ?>
-                            </strong>
-
-                        </div>
-
-
-                        <div class="information-item">
-
-                            <span>
-                                DATE ACHIEVED
-                            </span>
-
-                            <strong>
-                                <?php echo date("F d, Y", strtotime($accomplishment["date"])); ?>
-                            </strong>
-
-                        </div>
-
-
-                        <div class="information-item full-width">
-
-                            <span>
-                                ORGANIZATION
-                            </span>
-
-                            <strong>
-                                <?php echo htmlspecialchars($accomplishment["organization"]); ?>
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-
-                <section class="certificate-card">
-
-                    <div class="section-heading">
-
-                        <span class="section-label">
-                            SUPPORTING DOCUMENT
-                        </span>
 
                         <h2>
-                            Uploaded Certificate
+                            <?= htmlspecialchars(
+                                $accomplishment[
+                                    "title"
+                                ]
+                            ) ?>
                         </h2>
 
+
                         <p>
-                            View the certificate or supporting document associated with this accomplishment.
+                            <?= htmlspecialchars(
+                                $dateDisplay
+                            ) ?>
                         </p>
 
+
                     </div>
+
+
+                </div>
+
+
+                <div class="information-section">
+
+
+                    <span class="section-label">
+                        ACHIEVEMENT INFORMATION
+                    </span>
+
+
+                    <h3>
+                        Description
+                    </h3>
+
+
+                    <p class="description">
+                        <?= nl2br(
+                            htmlspecialchars(
+                                $descriptionDisplay
+                            )
+                        ) ?>
+                    </p>
+
+
+                </div>
+
+
+                <div class="information-grid">
+
+
+                    <div class="information-item">
+
+                        <span>
+                            CATEGORY
+                        </span>
+
+                        <strong>
+                            <?= htmlspecialchars(
+                                $categoryLabel
+                            ) ?>
+                        </strong>
+
+                    </div>
+
+
+                    <div class="information-item">
+
+                        <span>
+                            DATE ACHIEVED
+                        </span>
+
+                        <strong>
+                            <?= htmlspecialchars(
+                                $dateDisplay
+                            ) ?>
+                        </strong>
+
+                    </div>
+
+
+                    <div
+                        class="
+                            information-item
+                            full-width
+                        "
+                    >
+
+                        <span>
+                            ORGANIZATION
+                        </span>
+
+                        <strong>
+                            <?= htmlspecialchars(
+                                $organizationDisplay
+                            ) ?>
+                        </strong>
+
+                    </div>
+
+
+                </div>
+
+
+            </section>
+
+
+            <section class="certificate-card">
+
+
+                <div class="section-heading">
+
+                    <span class="section-label">
+                        SUPPORTING DOCUMENT
+                    </span>
+
+                    <h2>
+                        Certificate or Document
+                    </h2>
+
+                </div>
+
+
+                <?php if (
+                    $documentPath !== ""
+                ): ?>
 
 
                     <div class="document-preview">
 
+
                         <div class="document-icon">
-                            PDF
+                            FILE
                         </div>
+
 
                         <div class="document-information">
 
                             <h3>
-                                <?php echo htmlspecialchars($accomplishment["document"]); ?>
+                                <?= htmlspecialchars(
+                                    $documentName
+                                ) ?>
                             </h3>
 
                             <p>
@@ -236,229 +650,352 @@ $accomplishment = [
 
                         </div>
 
+
                         <a
-                            href="#"
+                            href="<?= htmlspecialchars(
+                                $documentPath,
+                                ENT_QUOTES,
+                                "UTF-8"
+                            ) ?>"
                             class="view-document-button"
+                            target="_blank"
+                            rel="noopener"
                         >
-                            View Certificate
+                            View Document
                         </a>
 
-                    </div>
-
-                </section>
-
-
-            </div>
-
-
-            <aside class="details-sidebar">
-
-
-                <section class="action-card">
-
-                    <span class="section-label">
-                        MANAGE
-                    </span>
-
-                    <h2>
-                        Accomplishment Actions
-                    </h2>
-
-                    <div class="action-list">
-
-                        <a
-                            href="edit_accomplishment.php"
-                            class="edit-button"
-                        >
-                            Edit Accomplishment
-                        </a>
-
-                        <button
-                            type="button"
-                            class="delete-button"
-                            onclick="showDeleteConfirmation()"
-                        >
-                            Delete Accomplishment
-                        </button>
 
                     </div>
 
-                </section>
+
+                <?php else: ?>
 
 
-                <section class="summary-card">
+                    <div class="document-preview">
 
-                    <span class="section-label">
-                        SUMMARY
-                    </span>
 
-                    <h2>
-                        Record Information
-                    </h2>
+                        <div class="document-icon">
+                            —
+                        </div>
 
-                    <div class="summary-list">
 
-                        <div class="summary-item">
+                        <div class="document-information">
 
-                            <span>
-                                Category
-                            </span>
+                            <h3>
+                                No document uploaded
+                            </h3>
 
-                            <strong>
-                                <?php echo htmlspecialchars($accomplishment["category"]); ?>
-                            </strong>
+                            <p>
+                                This accomplishment
+                                does not have a
+                                supporting document.
+                            </p>
 
                         </div>
 
 
-                        <div class="summary-item">
-
-                            <span>
-                                Date
-                            </span>
-
-                            <strong>
-                                <?php echo date("M d, Y", strtotime($accomplishment["date"])); ?>
-                            </strong>
-
-                        </div>
-
-
-                        <div class="summary-item">
-
-                            <span>
-                                Organization
-                            </span>
-
-                            <strong>
-                                <?php echo htmlspecialchars($accomplishment["organization"]); ?>
-                            </strong>
-
-                        </div>
-
-
-                        <div class="summary-item">
-
-                            <span>
-                                Document
-                            </span>
-
-                            <strong>
-                                Available
-                            </strong>
-
-                        </div>
-
                     </div>
 
-                </section>
+
+                <?php endif; ?>
 
 
-                <section class="privacy-card">
+            </section>
 
-                    <div class="privacy-icon">
-                        ✓
-                    </div>
-
-                    <div>
-
-                        <h3>
-                            Portfolio Visibility
-                        </h3>
-
-                        <p>
-                            The visibility of this accomplishment can be controlled through your privacy settings.
-                        </p>
-
-                    </div>
-
-                </section>
-
-
-            </aside>
 
         </div>
 
-    </main>
+
+        <aside class="details-sidebar">
 
 
-    <div
-        class="delete-overlay"
-        id="deleteOverlay"
-    >
+            <section class="action-card">
 
-        <div class="delete-modal">
 
-            <div class="delete-icon">
-                !
-            </div>
+                <span class="section-label">
+                    MANAGE
+                </span>
 
-            <h2>
-                Delete Accomplishment?
-            </h2>
 
-            <p>
-                Are you sure you want to delete this accomplishment? This action cannot be undone.
-            </p>
+                <h2>
+                    Accomplishment Actions
+                </h2>
 
-            <div class="delete-actions">
 
-                <button
-                    type="button"
-                    class="cancel-delete"
-                    onclick="hideDeleteConfirmation()"
+                <div class="action-list">
+
+
+                    <a
+                        href="edit_accomplishment.php?id=<?= $accomplishmentId ?>"
+                        class="edit-button"
+                    >
+                        Edit Accomplishment
+                    </a>
+
+
+                    <button
+                        type="button"
+                        class="delete-button"
+                        onclick="showDeleteConfirmation()"
+                    >
+                        Delete Accomplishment
+                    </button>
+
+
+                </div>
+
+
+            </section>
+
+
+            <section class="summary-card">
+
+
+                <span class="section-label">
+                    SUMMARY
+                </span>
+
+
+                <h2>
+                    Record Information
+                </h2>
+
+
+                <div class="summary-list">
+
+
+                    <div class="summary-item">
+
+                        <span>
+                            Category
+                        </span>
+
+                        <strong>
+                            <?= htmlspecialchars(
+                                $categoryLabel
+                            ) ?>
+                        </strong>
+
+                    </div>
+
+
+                    <div class="summary-item">
+
+                        <span>
+                            Date
+                        </span>
+
+                        <strong>
+                            <?= htmlspecialchars(
+                                $dateDisplay
+                            ) ?>
+                        </strong>
+
+                    </div>
+
+
+                    <div class="summary-item">
+
+                        <span>
+                            Organization
+                        </span>
+
+                        <strong>
+                            <?= htmlspecialchars(
+                                $organizationDisplay
+                            ) ?>
+                        </strong>
+
+                    </div>
+
+
+                    <div class="summary-item">
+
+                        <span>
+                            Document
+                        </span>
+
+                        <strong>
+                            <?= $documentPath !== ""
+                                ? "Available"
+                                : "None"
+                            ?>
+                        </strong>
+
+                    </div>
+
+
+                </div>
+
+
+            </section>
+
+
+            <section class="privacy-card">
+
+                <div class="privacy-icon">
+                    ✓
+                </div>
+
+                <div>
+
+                    <h3>
+                        Portfolio Visibility
+                    </h3>
+
+                    <p>
+                        Visibility is controlled by
+                        your Accomplishments setting
+                        in Privacy.
+                    </p>
+
+                </div>
+
+            </section>
+
+
+        </aside>
+
+
+    </div>
+
+
+</main>
+
+
+<!-- =====================================================
+     DELETE CONFIRMATION
+====================================================== -->
+
+<div
+    class="delete-overlay"
+    id="deleteOverlay"
+>
+
+    <div class="delete-modal">
+
+
+        <div class="delete-icon">
+            !
+        </div>
+
+
+        <h2>
+            Delete Accomplishment?
+        </h2>
+
+
+        <p>
+            This permanently deletes this
+            accomplishment and its uploaded
+            document.
+        </p>
+
+
+        <div class="delete-actions">
+
+
+            <button
+                type="button"
+                class="cancel-delete"
+                onclick="hideDeleteConfirmation()"
+            >
+                Cancel
+            </button>
+
+
+            <form
+                method="POST"
+                action="accomplishment_details.php?id=<?= $accomplishmentId ?>"
+            >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= htmlspecialchars(
+                        $csrfToken
+                    ) ?>"
                 >
-                    Cancel
-                </button>
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="delete"
+                >
+
 
                 <button
-                    type="button"
+                    type="submit"
                     class="confirm-delete"
                 >
                     Delete
                 </button>
 
-            </div>
+            </form>
+
 
         </div>
 
+
     </div>
 
-
-    <footer class="footer">
-
-        <p>
-            StudentProfiler
-        </p>
-
-        <span>
-            Manage your student profile with ease.
-        </span>
-
-    </footer>
+</div>
 
 
-    <script>
+<footer class="footer">
 
-        const deleteOverlay = document.getElementById("deleteOverlay");
+    <p>
+        CVSWHO
+    </p>
 
-        function showDeleteConfirmation() {
-            deleteOverlay.classList.add("show");
-        }
+    <span>
+        Manage your student profile with ease.
+    </span>
 
-        function hideDeleteConfirmation() {
-            deleteOverlay.classList.remove("show");
-        }
+</footer>
 
-        deleteOverlay.addEventListener("click", function(event) {
 
-            if (event.target === deleteOverlay) {
+<script>
+
+    const deleteOverlay =
+        document.getElementById(
+            "deleteOverlay"
+        );
+
+
+    function showDeleteConfirmation() {
+
+        deleteOverlay.classList.add(
+            "show"
+        );
+    }
+
+
+    function hideDeleteConfirmation() {
+
+        deleteOverlay.classList.remove(
+            "show"
+        );
+    }
+
+
+    deleteOverlay.addEventListener(
+        "click",
+        function (event) {
+
+            if (
+                event.target ===
+                deleteOverlay
+            ) {
+
                 hideDeleteConfirmation();
             }
+        }
+    );
 
-        });
+</script>
 
-    </script>
 
 </body>
+
 </html>
