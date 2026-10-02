@@ -5,6 +5,8 @@ session_start();
 require_once "db.php";
 
 
+/* LOGIN */
+
 if (!isset($_SESSION["user_id"])) {
 
     header("Location: login.php");
@@ -16,20 +18,75 @@ $userId =
     (int) $_SESSION["user_id"];
 
 
-$error = "";
-$success = "";
+/* ACCOUNT */
+
+$stmt =
+    $conn->prepare("
+        SELECT
+            role,
+            account_status,
+            email_verified
+
+        FROM users
+
+        WHERE id = ?
+
+        LIMIT 1
+    ");
 
 
-/* =========================================================
-   LOGOUT
-========================================================= */
+if (!$stmt) {
+
+    die(
+        "Unable to verify your account."
+    );
+}
+
+
+$stmt->bind_param(
+    "i",
+    $userId
+);
+
+
+$stmt->execute();
+
+
+$account =
+    $stmt
+        ->get_result()
+        ->fetch_assoc();
+
+
+$stmt->close();
+
+
+if (
+    !$account ||
+    $account["role"] !== "student" ||
+    $account["account_status"] !== "active" ||
+    (int) $account["email_verified"] !== 1
+) {
+
+    session_destroy();
+
+    header("Location: login.php");
+    exit;
+}
+
+
+/* LOGOUT */
 
 if (isset($_GET["logout"])) {
 
     $_SESSION = [];
 
 
-    if (ini_get("session.use_cookies")) {
+    if (
+        ini_get(
+            "session.use_cookies"
+        )
+    ) {
 
         $params =
             session_get_cookie_params();
@@ -50,14 +107,37 @@ if (isset($_GET["logout"])) {
     session_destroy();
 
 
-    header("Location: index.php");
+    header("Location: login.php");
     exit;
 }
 
 
-/* =========================================================
-   DEFAULT VISIBILITY
-========================================================= */
+/* CSRF */
+
+if (
+    empty(
+        $_SESSION[
+            "privacy_csrf"
+        ]
+    )
+) {
+
+    $_SESSION[
+        "privacy_csrf"
+    ] =
+        bin2hex(
+            random_bytes(32)
+        );
+}
+
+
+$csrfToken =
+    $_SESSION[
+        "privacy_csrf"
+    ];
+
+
+/* DEFAULTS */
 
 $privacy = [
 
@@ -80,179 +160,19 @@ $privacy = [
         "school_only",
 
     "hobbies_visibility" =>
+        "school_only",
+
+    "organizations_visibility" =>
         "school_only"
 ];
 
 
-$allowedValues = [
+$error = "";
 
-    "public",
-    "school_only",
-    "private"
-];
+$success = "";
 
 
-/* =========================================================
-   SAVE SETTINGS
-========================================================= */
-
-if (
-    $_SERVER["REQUEST_METHOD"]
-    === "POST"
-) {
-
-    foreach (
-        array_keys($privacy)
-        as $key
-    ) {
-
-        $value =
-            $_POST[$key]
-            ?? $privacy[$key];
-
-
-        if (
-            !in_array(
-                $value,
-                $allowedValues,
-                true
-            )
-        ) {
-
-            $error =
-                "Invalid privacy setting.";
-
-            break;
-        }
-
-
-        $privacy[$key] =
-            $value;
-    }
-
-
-    if ($error === "") {
-
-        $stmt =
-            $conn->prepare("
-                INSERT INTO privacy_settings
-                (
-                    user_id,
-
-                    profile_visibility,
-                    contact_visibility,
-                    family_visibility,
-                    address_visibility,
-
-                    academic_visibility,
-                    achievement_visibility,
-                    hobbies_visibility
-                )
-
-                VALUES
-                (
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?,
-                    ?
-                )
-
-                ON DUPLICATE KEY UPDATE
-
-                    profile_visibility =
-                        VALUES(profile_visibility),
-
-                    contact_visibility =
-                        VALUES(contact_visibility),
-
-                    family_visibility =
-                        VALUES(family_visibility),
-
-                    address_visibility =
-                        VALUES(address_visibility),
-
-                    academic_visibility =
-                        VALUES(academic_visibility),
-
-                    achievement_visibility =
-                        VALUES(achievement_visibility),
-
-                    hobbies_visibility =
-                        VALUES(hobbies_visibility)
-            ");
-
-
-        if (!$stmt) {
-
-            $error =
-                "Privacy database error: " .
-                $conn->error;
-
-        } else {
-
-            $stmt->bind_param(
-                "isssssss",
-
-                $userId,
-
-                $privacy[
-                    "profile_visibility"
-                ],
-
-                $privacy[
-                    "contact_visibility"
-                ],
-
-                $privacy[
-                    "family_visibility"
-                ],
-
-                $privacy[
-                    "address_visibility"
-                ],
-
-                $privacy[
-                    "academic_visibility"
-                ],
-
-                $privacy[
-                    "achievement_visibility"
-                ],
-
-                $privacy[
-                    "hobbies_visibility"
-                ]
-            );
-
-
-            if (
-                $stmt->execute()
-            ) {
-
-                $success =
-                    "Privacy settings saved successfully.";
-
-            } else {
-
-                $error =
-                    "Unable to save privacy settings: " .
-                    $stmt->error;
-            }
-
-
-            $stmt->close();
-        }
-    }
-}
-
-
-/* =========================================================
-   LOAD CURRENT SETTINGS
-========================================================= */
+/* LOAD */
 
 $stmt =
     $conn->prepare("
@@ -262,10 +182,10 @@ $stmt =
             contact_visibility,
             family_visibility,
             address_visibility,
-
             academic_visibility,
             achievement_visibility,
-            hobbies_visibility
+            hobbies_visibility,
+            organizations_visibility
 
         FROM privacy_settings
 
@@ -286,7 +206,7 @@ if ($stmt) {
     $stmt->execute();
 
 
-    $saved =
+    $savedPrivacy =
         $stmt
             ->get_result()
             ->fetch_assoc();
@@ -295,106 +215,328 @@ if ($stmt) {
     $stmt->close();
 
 
-    if ($saved) {
+    if ($savedPrivacy) {
 
-        $privacy =
-            array_merge(
-                $privacy,
-                $saved
-            );
+        foreach (
+            $privacy
+            as $key => $value
+        ) {
+
+            if (
+                isset(
+                    $savedPrivacy[$key]
+                )
+            ) {
+
+                $privacy[$key] =
+                    $savedPrivacy[$key];
+            }
+        }
     }
 }
 
 
-/* =========================================================
-   RADIO OPTIONS
-========================================================= */
+/* SAVE */
 
-function privacyOptions(
-    string $name,
-    string $current
-): string {
+if (
+    $_SERVER["REQUEST_METHOD"] === "POST"
+) {
 
-    $options = [
-
-        "public" => [
-            "Public",
-            "Visible to everyone."
-        ],
-
-        "school_only" => [
-            "School Only",
-            "Visible only to authenticated CVSWHO/CvSU users."
-        ],
-
-        "private" => [
-            "Private",
-            "Hidden from other users."
-        ]
-    ];
+    $submittedToken =
+        $_POST["csrf_token"]
+        ?? "";
 
 
-    $html =
-        '<div class="privacy-choice-grid">';
-
-
-    foreach (
-        $options
-        as $value => $info
+    if (
+        !hash_equals(
+            $csrfToken,
+            $submittedToken
+        )
     ) {
 
-        $checked =
-            $current === $value
-                ? "checked"
-                : "";
+        $error =
+            "Your form session expired. Please refresh the page.";
+
+    } else {
+
+        $allowedValues = [
+
+            "public",
+            "school_only",
+            "private"
+        ];
 
 
-        $html .= '
+        $profileVisibility =
+            $_POST[
+                "profile_visibility"
+            ] ?? "school_only";
 
-            <label class="privacy-choice">
 
-                <input
-                    type="radio"
-                    name="' .
-                        htmlspecialchars(
-                            $name
-                        ) .
-                    '"
-                    value="' .
-                        htmlspecialchars(
-                            $value
-                        ) .
-                    '"
-                    ' .
-                        $checked .
-                    '
-                >
+        $contactVisibility =
+            $_POST[
+                "contact_visibility"
+            ] ?? "private";
 
-                <span class="privacy-choice-box">
 
-                    <strong>' .
-                        htmlspecialchars(
-                            $info[0]
-                        ) .
-                    '</strong>
+        $familyVisibility =
+            $_POST[
+                "family_visibility"
+            ] ?? "private";
 
-                    <span>' .
-                        htmlspecialchars(
-                            $info[1]
-                        ) .
-                    '</span>
 
-                </span>
+        $addressVisibility =
+            $_POST[
+                "address_visibility"
+            ] ?? "private";
 
-            </label>
-        ';
+
+        $academicVisibility =
+            $_POST[
+                "academic_visibility"
+            ] ?? "school_only";
+
+
+        $achievementVisibility =
+            $_POST[
+                "achievement_visibility"
+            ] ?? "school_only";
+
+
+        $hobbiesVisibility =
+            $_POST[
+                "hobbies_visibility"
+            ] ?? "school_only";
+
+
+        $organizationsVisibility =
+            $_POST[
+                "organizations_visibility"
+            ] ?? "school_only";
+
+
+        $values = [
+
+            $profileVisibility,
+            $contactVisibility,
+            $familyVisibility,
+            $addressVisibility,
+            $academicVisibility,
+            $achievementVisibility,
+            $hobbiesVisibility,
+            $organizationsVisibility
+        ];
+
+
+        $valid =
+            true;
+
+
+        foreach (
+            $values
+            as $value
+        ) {
+
+            if (
+                !in_array(
+                    $value,
+                    $allowedValues,
+                    true
+                )
+            ) {
+
+                $valid =
+                    false;
+
+                break;
+            }
+        }
+
+
+        if (!$valid) {
+
+            $error =
+                "Invalid privacy setting selected.";
+
+        } else {
+
+            $stmt =
+                $conn->prepare("
+                    INSERT INTO privacy_settings
+                    (
+                        user_id,
+                        profile_visibility,
+                        contact_visibility,
+                        family_visibility,
+                        address_visibility,
+                        academic_visibility,
+                        achievement_visibility,
+                        hobbies_visibility,
+                        organizations_visibility
+                    )
+
+                    VALUES
+                    (
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?,
+                        ?
+                    )
+
+                    ON DUPLICATE KEY UPDATE
+
+                        profile_visibility =
+                            VALUES(
+                                profile_visibility
+                            ),
+
+                        contact_visibility =
+                            VALUES(
+                                contact_visibility
+                            ),
+
+                        family_visibility =
+                            VALUES(
+                                family_visibility
+                            ),
+
+                        address_visibility =
+                            VALUES(
+                                address_visibility
+                            ),
+
+                        academic_visibility =
+                            VALUES(
+                                academic_visibility
+                            ),
+
+                        achievement_visibility =
+                            VALUES(
+                                achievement_visibility
+                            ),
+
+                        hobbies_visibility =
+                            VALUES(
+                                hobbies_visibility
+                            ),
+
+                        organizations_visibility =
+                            VALUES(
+                                organizations_visibility
+                            )
+                ");
+
+
+            if (!$stmt) {
+
+                $error =
+                    "Unable to save your privacy settings.";
+
+            } else {
+
+                $stmt->bind_param(
+                    "issssssss",
+
+                    $userId,
+
+                    $profileVisibility,
+                    $contactVisibility,
+                    $familyVisibility,
+                    $addressVisibility,
+                    $academicVisibility,
+                    $achievementVisibility,
+                    $hobbiesVisibility,
+                    $organizationsVisibility
+                );
+
+
+                if ($stmt->execute()) {
+
+                    $privacy[
+                        "profile_visibility"
+                    ] =
+                        $profileVisibility;
+
+
+                    $privacy[
+                        "contact_visibility"
+                    ] =
+                        $contactVisibility;
+
+
+                    $privacy[
+                        "family_visibility"
+                    ] =
+                        $familyVisibility;
+
+
+                    $privacy[
+                        "address_visibility"
+                    ] =
+                        $addressVisibility;
+
+
+                    $privacy[
+                        "academic_visibility"
+                    ] =
+                        $academicVisibility;
+
+
+                    $privacy[
+                        "achievement_visibility"
+                    ] =
+                        $achievementVisibility;
+
+
+                    $privacy[
+                        "hobbies_visibility"
+                    ] =
+                        $hobbiesVisibility;
+
+
+                    $privacy[
+                        "organizations_visibility"
+                    ] =
+                        $organizationsVisibility;
+
+
+                    $success =
+                        "Privacy settings saved successfully.";
+
+                } else {
+
+                    $error =
+                        "Unable to save your privacy settings.";
+                }
+
+
+                $stmt->close();
+            }
+        }
     }
+}
 
 
-    $html .= '</div>';
+/* OPTION */
 
+function privacyChecked(
+    array $privacy,
+    string $field,
+    string $value
+): string {
 
-    return $html;
+    return
+        (
+            $privacy[$field]
+            ?? ""
+        ) === $value
+            ? "checked"
+            : "";
 }
 
 ?>
@@ -428,125 +570,76 @@ function privacyOptions(
 
     <style>
 
-        .privacy-notice {
-
-            padding:
-                18px 20px;
-
-            margin-bottom: 22px;
-
-            background:
-                #edf8f2;
-
-            border:
-                1px solid #cfe5d8;
-
-            border-radius: 12px;
-        }
-
-
-        .privacy-notice strong {
-
-            display: block;
-
-            color:
-                #003d24;
-
-            font-size: 11px;
-        }
-
-
-        .privacy-notice p {
-
-            margin-top: 6px;
-
-            color:
-                #68766f;
-
-            font-size: 10px;
-
-            line-height: 1.7;
-        }
-
-
         .privacy-message {
 
-            padding:
-                14px 18px;
+            margin-bottom: 18px;
 
-            margin-bottom: 20px;
+            padding: 12px 15px;
 
-            border-radius: 10px;
+            border-radius: 9px;
 
-            font-size: 11px;
-
-            font-weight: 600;
+            font-size: 9px;
         }
 
 
-        .privacy-success {
+        .privacy-message.success {
 
-            color:
-                #18794e;
+            color: #18794e;
 
-            background:
-                #eefaf3;
+            background: #eaf7ef;
 
             border:
-                1px solid #cae7d7;
+                1px solid #cee8d9;
         }
 
 
-        .privacy-error {
+        .privacy-message.error {
 
-            color:
-                #a33f3f;
+            color: #a23939;
 
-            background:
-                #fff5f5;
+            background: #fff0f0;
 
             border:
-                1px solid #efd0d0;
+                1px solid #efcccc;
         }
 
 
-        .privacy-section-row {
+        .visibility-row {
 
-            padding:
-                20px 0;
+            padding: 20px 0;
 
-            border-top:
+            border-bottom:
                 1px solid #e1e9e4;
         }
 
 
-        .privacy-section-row:first-child {
+        .visibility-row:last-child {
 
-            border-top: 0;
+            border-bottom: none;
         }
 
 
-        .privacy-section-header {
+        .visibility-row-header {
 
             margin-bottom: 13px;
         }
 
 
-        .privacy-section-header h3 {
+        .visibility-row-header h3 {
 
-            color:
-                #003d24;
+            color: #003d24;
 
             font-size: 11px;
+
+            font-weight: 700;
         }
 
 
-        .privacy-section-header p {
+        .visibility-row-header p {
 
-            margin-top: 5px;
+            margin-top: 4px;
 
-            color:
-                #68766f;
+            color: #68766f;
 
             font-size: 9px;
 
@@ -554,29 +647,34 @@ function privacyOptions(
         }
 
 
-        .privacy-choice-grid {
+        .visibility-choice-group {
 
             display: grid;
 
             grid-template-columns:
                 repeat(
                     3,
-                    1fr
+                    minmax(
+                        0,
+                        1fr
+                    )
                 );
 
             gap: 9px;
         }
 
 
-        .privacy-choice {
+        .visibility-choice {
 
             position: relative;
+
+            display: block;
 
             cursor: pointer;
         }
 
 
-        .privacy-choice input {
+        .visibility-choice input {
 
             position: absolute;
 
@@ -586,46 +684,43 @@ function privacyOptions(
         }
 
 
-        .privacy-choice-box {
-
-            display: block;
+        .visibility-choice-content {
 
             height: 100%;
 
             padding: 13px;
 
-            background:
-                #f5f8f6;
+            background: white;
 
             border:
-                1px solid #e1e9e4;
+                1px solid #dce7e0;
 
             border-radius: 9px;
 
             transition:
-                .2s ease;
+                border-color .2s ease,
+                background .2s ease,
+                box-shadow .2s ease;
         }
 
 
-        .privacy-choice-box strong {
+        .visibility-choice-content strong {
 
             display: block;
 
-            color:
-                #003d24;
+            color: #003d24;
 
-            font-size: 10px;
+            font-size: 9px;
         }
 
 
-        .privacy-choice-box span {
+        .visibility-choice-content span {
 
             display: block;
 
             margin-top: 4px;
 
-            color:
-                #68766f;
+            color: #68766f;
 
             font-size: 8px;
 
@@ -633,110 +728,90 @@ function privacyOptions(
         }
 
 
-        .privacy-choice input:checked
-        + .privacy-choice-box {
+        .visibility-choice input:checked
+        + .visibility-choice-content {
 
-            background:
-                #ddefe5;
+            background: #eff8f3;
 
-            border-color:
-                #006b3f;
+            border-color: #006b3f;
 
             box-shadow:
-                0 0 0 1px
+                0 0 0 2px
                 rgba(
                     0,
                     107,
                     63,
-                    .05
+                    .06
                 );
         }
 
 
-        .always-visible {
-
-            padding: 16px;
-
-            margin-top: 18px;
-
-            background:
-                #f5f8f6;
-
-            border:
-                1px solid #e1e9e4;
-
-            border-radius: 10px;
-        }
-
-
-        .always-visible strong {
-
-            display: block;
-
-            color:
-                #006b3f;
-
-            font-size: 10px;
-        }
-
-
-        .always-visible p {
-
-            margin-top: 5px;
-
-            color:
-                #68766f;
-
-            font-size: 9px;
-
-            line-height: 1.6;
-        }
-
-
-        .privacy-actions {
+        .save-row {
 
             display: flex;
 
+            align-items: center;
+
             justify-content:
                 flex-end;
-
-            gap: 10px;
 
             margin-top: 22px;
         }
 
 
-        .save-privacy-button {
+        .save-button {
 
             padding:
-                12px 20px;
+                11px 17px;
 
-            color:
-                white;
+            color: white;
 
-            background:
-                #006b3f;
+            background: #006b3f;
 
-            border:
-                1px solid #006b3f;
+            border: none;
 
             border-radius: 8px;
 
-            font-family:
-                inherit;
+            font: inherit;
 
-            font-size: 11px;
+            font-size: 9px;
 
-            font-weight: 600;
+            font-weight: 700;
 
             cursor: pointer;
         }
 
 
-        .save-privacy-button:hover {
+        .save-button:hover {
 
-            background:
-                #004d2a;
+            background: #004d2a;
+        }
+
+
+        .privacy-explanation {
+
+            margin-top: 20px;
+
+            padding: 16px;
+
+            color: #68766f;
+
+            background: #f5f8f6;
+
+            border:
+                1px solid #e1e9e4;
+
+            border-radius: 9px;
+
+            font-size: 9px;
+
+            line-height: 1.7;
+        }
+
+
+        .privacy-explanation strong {
+
+            color: #003d24;
         }
 
 
@@ -744,11 +819,12 @@ function privacyOptions(
             max-width: 700px
         ) {
 
-            .privacy-choice-grid {
+            .visibility-choice-group {
 
                 grid-template-columns:
                     1fr;
             }
+
         }
 
     </style>
@@ -759,6 +835,8 @@ function privacyOptions(
 
 <body>
 
+
+<!-- NAVIGATION -->
 
 <header class="navbar">
 
@@ -779,16 +857,13 @@ function privacyOptions(
 
             <div class="brand-text">
 
-
                 <span class="brand-name">
                     CVSWHO
                 </span>
 
-
                 <span class="brand-subtitle">
                     Student Profile Management
                 </span>
-
 
             </div>
 
@@ -798,12 +873,14 @@ function privacyOptions(
 
         <nav class="desktop-nav">
 
+
             <a
                 href="student_dashboard.php"
                 class="nav-link"
             >
                 Dashboard
             </a>
+
 
             <a
                 href="student_profile.php"
@@ -812,18 +889,22 @@ function privacyOptions(
                 Profile
             </a>
 
+
             <a
                 href="accomplishments.php"
                 class="nav-link"
             >
                 Accomplishments
             </a>
-    <a
-        href="organizations.php"
-        class="nav-link"
-    >
-        Organizations
-    </a>
+
+
+            <a
+                href="organizations.php"
+                class="nav-link"
+            >
+                Organizations
+            </a>
+
 
             <a
                 href="privacy.php"
@@ -832,12 +913,14 @@ function privacyOptions(
                 Privacy
             </a>
 
+
             <a
                 href="settings.php"
                 class="nav-link"
             >
                 Settings
             </a>
+
 
         </nav>
 
@@ -856,6 +939,8 @@ function privacyOptions(
 </header>
 
 
+<!-- PRIVACY -->
+
 <main class="page">
 
 
@@ -873,9 +958,8 @@ function privacyOptions(
 
 
         <p>
-            Choose whether each part of your
-            profile is public, school-only,
-            or private.
+            Control who can view your profile
+            and each section of your student information.
         </p>
 
 
@@ -887,12 +971,7 @@ function privacyOptions(
     ): ?>
 
 
-        <div
-            class="
-                privacy-message
-                privacy-success
-            "
-        >
+        <div class="privacy-message success">
 
             <?= htmlspecialchars(
                 $success
@@ -909,12 +988,7 @@ function privacyOptions(
     ): ?>
 
 
-        <div
-            class="
-                privacy-message
-                privacy-error
-            "
-        >
+        <div class="privacy-message error">
 
             <?= htmlspecialchars(
                 $error
@@ -926,34 +1000,22 @@ function privacyOptions(
     <?php endif; ?>
 
 
-    <div class="privacy-notice">
+    <form
+        method="POST"
+        action="privacy.php"
+    >
 
 
-        <strong>
-            How visibility works
-        </strong>
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= htmlspecialchars(
+                $csrfToken
+            ) ?>"
+        >
 
 
-        <p>
-
-            Public information can be viewed
-            by anyone.
-
-            School Only information can be
-            viewed only by authenticated
-            CVSWHO/CvSU users.
-
-            Private information stays hidden
-            from other users.
-
-        </p>
-
-
-    </div>
-
-
-    <form method="POST">
-
+        <!-- PROFILE -->
 
         <section class="privacy-card">
 
@@ -967,45 +1029,114 @@ function privacyOptions(
 
 
                 <h2>
-                    Who can find and open
-                    your profile?
+                    Who can view your profile?
                 </h2>
 
 
                 <p>
-                    This setting controls
-                    access to the profile itself.
+                    This controls whether another
+                    person may open your profile at all.
                 </p>
 
 
             </div>
 
 
-            <?= privacyOptions(
-                "profile_visibility",
-                $privacy[
-                    "profile_visibility"
-                ]
-            ) ?>
+            <div class="visibility-choice-group">
 
 
-            <div class="always-visible">
+                <label class="visibility-choice">
 
 
-                <strong>
-                    Basic profile identity
-                </strong>
+                    <input
+                        type="radio"
+                        name="profile_visibility"
+                        value="public"
+                        <?= privacyChecked(
+                            $privacy,
+                            "profile_visibility",
+                            "public"
+                        ) ?>
+                    >
 
 
-                <p>
+                    <div class="visibility-choice-content">
 
-                    When someone is allowed to
-                    view the profile, the
-                    student's name, year level,
-                    and section remain basic
-                    identifying information.
+                        <strong>
+                            Public
+                        </strong>
 
-                </p>
+                        <span>
+                            Anyone can open your profile.
+                        </span>
+
+                    </div>
+
+
+                </label>
+
+
+                <label class="visibility-choice">
+
+
+                    <input
+                        type="radio"
+                        name="profile_visibility"
+                        value="school_only"
+                        <?= privacyChecked(
+                            $privacy,
+                            "profile_visibility",
+                            "school_only"
+                        ) ?>
+                    >
+
+
+                    <div class="visibility-choice-content">
+
+                        <strong>
+                            School Only
+                        </strong>
+
+                        <span>
+                            Only authenticated CVSWHO
+                            school users can open your profile.
+                        </span>
+
+                    </div>
+
+
+                </label>
+
+
+                <label class="visibility-choice">
+
+
+                    <input
+                        type="radio"
+                        name="profile_visibility"
+                        value="private"
+                        <?= privacyChecked(
+                            $privacy,
+                            "profile_visibility",
+                            "private"
+                        ) ?>
+                    >
+
+
+                    <div class="visibility-choice-content">
+
+                        <strong>
+                            Private
+                        </strong>
+
+                        <span>
+                            Other users cannot open your profile.
+                        </span>
+
+                    </div>
+
+
+                </label>
 
 
             </div>
@@ -1013,6 +1144,8 @@ function privacyOptions(
 
         </section>
 
+
+        <!-- SECTION VISIBILITY -->
 
         <section class="privacy-card">
 
@@ -1031,223 +1164,682 @@ function privacyOptions(
 
 
                 <p>
-                    Set visibility separately
-                    for each type of information.
+                    Each section has its own independent
+                    visibility setting.
                 </p>
 
 
             </div>
 
 
-            <div class="privacy-section-row">
+            <!-- CONTACT -->
+
+            <div class="visibility-row">
 
 
-                <div class="privacy-section-header">
-
+                <div class="visibility-row-header">
 
                     <h3>
                         Contact Information
                     </h3>
 
-
                     <p>
-                        Email address and
-                        phone number.
+                        Email address and phone number.
                     </p>
-
 
                 </div>
 
 
-                <?= privacyOptions(
-                    "contact_visibility",
-                    $privacy[
-                        "contact_visibility"
-                    ]
-                ) ?>
+                <div class="visibility-choice-group">
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="contact_visibility"
+                            value="public"
+                            <?= privacyChecked(
+                                $privacy,
+                                "contact_visibility",
+                                "public"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Public</strong>
+                            <span>Visible to anyone.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="contact_visibility"
+                            value="school_only"
+                            <?= privacyChecked(
+                                $privacy,
+                                "contact_visibility",
+                                "school_only"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>School Only</strong>
+                            <span>Visible to school users.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="contact_visibility"
+                            value="private"
+                            <?= privacyChecked(
+                                $privacy,
+                                "contact_visibility",
+                                "private"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Private</strong>
+                            <span>Hidden from other users.</span>
+                        </div>
+
+                    </label>
+
+                </div>
 
 
             </div>
 
 
-            <div class="privacy-section-row">
+            <!-- FAMILY -->
+
+            <div class="visibility-row">
 
 
-                <div class="privacy-section-header">
-
+                <div class="visibility-row-header">
 
                     <h3>
                         Family Information
                     </h3>
 
-
                     <p>
-                        Parent, guardian, and
-                        guardian contact information.
+                        Parent and guardian information.
                     </p>
-
 
                 </div>
 
 
-                <?= privacyOptions(
-                    "family_visibility",
-                    $privacy[
-                        "family_visibility"
-                    ]
-                ) ?>
+                <div class="visibility-choice-group">
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="family_visibility"
+                            value="public"
+                            <?= privacyChecked(
+                                $privacy,
+                                "family_visibility",
+                                "public"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Public</strong>
+                            <span>Visible to anyone.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="family_visibility"
+                            value="school_only"
+                            <?= privacyChecked(
+                                $privacy,
+                                "family_visibility",
+                                "school_only"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>School Only</strong>
+                            <span>Visible to school users.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="family_visibility"
+                            value="private"
+                            <?= privacyChecked(
+                                $privacy,
+                                "family_visibility",
+                                "private"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Private</strong>
+                            <span>Hidden from other users.</span>
+                        </div>
+
+                    </label>
+
+                </div>
 
 
             </div>
 
 
-            <div class="privacy-section-row">
+            <!-- ADDRESS -->
+
+            <div class="visibility-row">
 
 
-                <div class="privacy-section-header">
-
+                <div class="visibility-row-header">
 
                     <h3>
                         Address
                     </h3>
 
-
                     <p>
-                        Residential address.
+                        Your residential address.
                     </p>
-
 
                 </div>
 
 
-                <?= privacyOptions(
-                    "address_visibility",
-                    $privacy[
-                        "address_visibility"
-                    ]
-                ) ?>
+                <div class="visibility-choice-group">
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="address_visibility"
+                            value="public"
+                            <?= privacyChecked(
+                                $privacy,
+                                "address_visibility",
+                                "public"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Public</strong>
+                            <span>Visible to anyone.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="address_visibility"
+                            value="school_only"
+                            <?= privacyChecked(
+                                $privacy,
+                                "address_visibility",
+                                "school_only"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>School Only</strong>
+                            <span>Visible to school users.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="address_visibility"
+                            value="private"
+                            <?= privacyChecked(
+                                $privacy,
+                                "address_visibility",
+                                "private"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Private</strong>
+                            <span>Hidden from other users.</span>
+                        </div>
+
+                    </label>
+
+                </div>
 
 
             </div>
 
 
-            <div class="privacy-section-row">
+            <!-- ACADEMIC -->
+
+            <div class="visibility-row">
 
 
-                <div class="privacy-section-header">
-
+                <div class="visibility-row-header">
 
                     <h3>
-                        Academic Details
-                        & School Background
+                        Academic Information
                     </h3>
 
-
                     <p>
-
                         Program, college, campus,
-                        and previous schools.
-
-                        Year level and section
-                        remain part of the
-                        basic profile.
-
+                        year level, section, and education.
                     </p>
-
 
                 </div>
 
 
-                <?= privacyOptions(
-                    "academic_visibility",
-                    $privacy[
-                        "academic_visibility"
-                    ]
-                ) ?>
+                <div class="visibility-choice-group">
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="academic_visibility"
+                            value="public"
+                            <?= privacyChecked(
+                                $privacy,
+                                "academic_visibility",
+                                "public"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Public</strong>
+                            <span>Visible to anyone.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="academic_visibility"
+                            value="school_only"
+                            <?= privacyChecked(
+                                $privacy,
+                                "academic_visibility",
+                                "school_only"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>School Only</strong>
+                            <span>Visible to school users.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="academic_visibility"
+                            value="private"
+                            <?= privacyChecked(
+                                $privacy,
+                                "academic_visibility",
+                                "private"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Private</strong>
+                            <span>Hidden from other users.</span>
+                        </div>
+
+                    </label>
+
+                </div>
 
 
             </div>
 
 
-            <div class="privacy-section-row">
+            <!-- ACHIEVEMENTS -->
+
+            <div class="visibility-row">
 
 
-                <div class="privacy-section-header">
-
+                <div class="visibility-row-header">
 
                     <h3>
-                        Accomplishments
+                        Achievements
                     </h3>
 
-
                     <p>
-                        Achievements,
-                        competitions,
-                        certificates,
-                        and projects.
+                        Accomplishments, awards,
+                        competitions, and certifications.
                     </p>
-
 
                 </div>
 
 
-                <?= privacyOptions(
-                    "achievement_visibility",
-                    $privacy[
-                        "achievement_visibility"
-                    ]
-                ) ?>
+                <div class="visibility-choice-group">
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="achievement_visibility"
+                            value="public"
+                            <?= privacyChecked(
+                                $privacy,
+                                "achievement_visibility",
+                                "public"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Public</strong>
+                            <span>Visible to anyone.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="achievement_visibility"
+                            value="school_only"
+                            <?= privacyChecked(
+                                $privacy,
+                                "achievement_visibility",
+                                "school_only"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>School Only</strong>
+                            <span>Visible to school users.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="achievement_visibility"
+                            value="private"
+                            <?= privacyChecked(
+                                $privacy,
+                                "achievement_visibility",
+                                "private"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Private</strong>
+                            <span>Hidden from other users.</span>
+                        </div>
+
+                    </label>
+
+                </div>
 
 
             </div>
 
 
-            <div class="privacy-section-row">
+            <!-- HOBBIES -->
+
+            <div class="visibility-row">
 
 
-                <div class="privacy-section-header">
-
+                <div class="visibility-row-header">
 
                     <h3>
                         Hobbies & Interests
                     </h3>
 
-
                     <p>
-                        Personal hobbies
-                        and interests.
+                        Your hobbies and personal interests.
                     </p>
-
 
                 </div>
 
 
-                <?= privacyOptions(
-                    "hobbies_visibility",
-                    $privacy[
-                        "hobbies_visibility"
-                    ]
-                ) ?>
+                <div class="visibility-choice-group">
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="hobbies_visibility"
+                            value="public"
+                            <?= privacyChecked(
+                                $privacy,
+                                "hobbies_visibility",
+                                "public"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Public</strong>
+                            <span>Visible to anyone.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="hobbies_visibility"
+                            value="school_only"
+                            <?= privacyChecked(
+                                $privacy,
+                                "hobbies_visibility",
+                                "school_only"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>School Only</strong>
+                            <span>Visible to school users.</span>
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="hobbies_visibility"
+                            value="private"
+                            <?= privacyChecked(
+                                $privacy,
+                                "hobbies_visibility",
+                                "private"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+                            <strong>Private</strong>
+                            <span>Hidden from other users.</span>
+                        </div>
+
+                    </label>
+
+                </div>
 
 
             </div>
 
 
-            <div class="privacy-actions">
+            <!-- ORGANIZATIONS -->
+
+            <div class="visibility-row">
 
 
-                <button
-                    type="submit"
-                    class="save-privacy-button"
-                >
-                    Save Privacy Settings
-                </button>
+                <div class="visibility-row-header">
 
+                    <h3>
+                        Organizations & Activities
+                    </h3>
+
+                    <p>
+                        Organizations, clubs,
+                        student government roles,
+                        and event participation.
+                    </p>
+
+                </div>
+
+
+                <div class="visibility-choice-group">
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="organizations_visibility"
+                            value="public"
+                            <?= privacyChecked(
+                                $privacy,
+                                "organizations_visibility",
+                                "public"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+
+                            <strong>
+                                Public
+                            </strong>
+
+                            <span>
+                                Visible to anyone.
+                            </span>
+
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="organizations_visibility"
+                            value="school_only"
+                            <?= privacyChecked(
+                                $privacy,
+                                "organizations_visibility",
+                                "school_only"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+
+                            <strong>
+                                School Only
+                            </strong>
+
+                            <span>
+                                Visible to authenticated school users.
+                            </span>
+
+                        </div>
+
+                    </label>
+
+
+                    <label class="visibility-choice">
+
+                        <input
+                            type="radio"
+                            name="organizations_visibility"
+                            value="private"
+                            <?= privacyChecked(
+                                $privacy,
+                                "organizations_visibility",
+                                "private"
+                            ) ?>
+                        >
+
+                        <div class="visibility-choice-content">
+
+                            <strong>
+                                Private
+                            </strong>
+
+                            <span>
+                                Hidden from other users.
+                            </span>
+
+                        </div>
+
+                    </label>
+
+                </div>
+
+
+            </div>
+
+
+            <div class="privacy-explanation">
+
+                <strong>
+                    How privacy works:
+                </strong>
+
+                Public information can be viewed by anyone.
+                School Only information requires an authenticated,
+                active and verified CVSWHO school account.
+                Private information is not shown to other users.
 
             </div>
 
 
         </section>
+
+
+        <div class="save-row">
+
+            <button
+                type="submit"
+                class="save-button"
+            >
+                Save Privacy Settings
+            </button>
+
+        </div>
 
 
     </form>
@@ -1256,20 +1848,22 @@ function privacyOptions(
 </main>
 
 
-<footer class="footer">
+<!-- FOOTER -->
 
+<footer class="footer">
 
     <p>
         CVSWHO
     </p>
 
-
     <span>
         Manage your student profile with ease.
     </span>
 
-
 </footer>
+
+
+<script src="main.js"></script>
 
 
 </body>
