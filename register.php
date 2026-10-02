@@ -85,7 +85,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $update = $conn->prepare("
                 UPDATE users
                 SET password_hash = ?,
-                    account_status = 'pending'
+                    account_status = 'pending',
+                    email_verified = 0
                 WHERE id = ?
             ");
 
@@ -117,25 +118,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $profile->execute();
 
-            $code = createAuthCode(
-                $conn,
-                $userId,
-                "registration"
+            $code = str_pad(
+                (string) random_int(0, 999999),
+                6,
+                "0",
+                STR_PAD_LEFT
             );
 
-            if (!sendAuthCode($email, $code, "registration")) {
+            $_SESSION["pending_auth_user_id"] = $userId;
+            $_SESSION["pending_auth_purpose"] = "registration";
+            $_SESSION["pending_auth_email"] = $email;
+            $_SESSION["pending_auth_role"] = "student";
+            $_SESSION["temporary_auth_code"] = $code;
+            $_SESSION["temporary_auth_expires"] = time() + 600;
 
-                $error = "We could not send the verification code. Please try again.";
-
-            } else {
-
-                $_SESSION["pending_auth_user_id"] = $userId;
-                $_SESSION["pending_auth_purpose"] = "registration";
-                $_SESSION["pending_auth_email"] = $email;
-
-                header("Location: auth.php");
-                exit;
-            }
+            header("Location: auth.php");
+            exit;
 
         } else {
 
@@ -206,29 +204,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 $privacySettings->execute();
 
-                $code = createAuthCode(
-                    $conn,
-                    $userId,
-                    "registration"
+                $code = str_pad(
+                    (string) random_int(0, 999999),
+                    6,
+                    "0",
+                    STR_PAD_LEFT
                 );
 
-                if (!sendAuthCode(
-                    $email,
-                    $code,
-                    "registration"
-                )) {
+                $_SESSION["pending_auth_user_id"] = $userId;
+                $_SESSION["pending_auth_purpose"] = "registration";
+                $_SESSION["pending_auth_email"] = $email;
+                $_SESSION["pending_auth_role"] = "student";
+                $_SESSION["temporary_auth_code"] = $code;
+                $_SESSION["temporary_auth_expires"] = time() + 600;
 
-                    $error = "Your account was created, but we could not send the verification code.";
-
-                } else {
-
-                    $_SESSION["pending_auth_user_id"] = $userId;
-                    $_SESSION["pending_auth_purpose"] = "registration";
-                    $_SESSION["pending_auth_email"] = $email;
-
-                    header("Location: auth.php");
-                    exit;
-                }
+                header("Location: auth.php");
+                exit;
             }
         }
     }
@@ -281,8 +272,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         <div class="auth-card">
 
-            <!-- BRAND -->
-
             <div class="auth-brand">
 
                 <a
@@ -311,8 +300,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
 
 
-            <!-- HEADER -->
-
             <div class="auth-header">
 
                 <h1>
@@ -326,8 +313,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
 
 
-            <!-- ERROR -->
-
             <?php if ($error !== ""): ?>
 
                 <div class="alert alert-error">
@@ -336,8 +321,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             <?php endif; ?>
 
-
-            <!-- FORM -->
 
             <form
                 method="POST"
@@ -472,8 +455,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             </form>
 
-
-            <!-- BOTTOM -->
 
             <div class="auth-bottom">
 
