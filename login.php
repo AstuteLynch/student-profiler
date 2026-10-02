@@ -3,18 +3,17 @@
 session_start();
 
 require_once "db.php";
+require_once "auth_functions.php";
 
 
 $error = "";
 
-$showReactivation = false;
 
-
-/* ALREADY LOGGED IN */
+/* LOGGED IN */
 
 if (isset($_SESSION["user_id"])) {
 
-    $loggedUserId =
+    $userId =
         (int) $_SESSION["user_id"];
 
 
@@ -22,7 +21,8 @@ if (isset($_SESSION["user_id"])) {
         $conn->prepare("
             SELECT
                 role,
-                account_status
+                account_status,
+                email_verified
 
             FROM users
 
@@ -36,14 +36,14 @@ if (isset($_SESSION["user_id"])) {
 
         $stmt->bind_param(
             "i",
-            $loggedUserId
+            $userId
         );
 
 
         $stmt->execute();
 
 
-        $loggedUser =
+        $user =
             $stmt
                 ->get_result()
                 ->fetch_assoc();
@@ -53,14 +53,14 @@ if (isset($_SESSION["user_id"])) {
 
 
         if (
-            $loggedUser &&
-            $loggedUser["account_status"]
-                === "active"
+            $user &&
+            $user["account_status"] === "active" &&
+            (int) $user["email_verified"] === 1
         ) {
 
             if (
-                ($loggedUser["role"] ?? "")
-                === "administrator"
+                $user["role"] ===
+                "administrator"
             ) {
 
                 header(
@@ -83,226 +83,16 @@ if (isset($_SESSION["user_id"])) {
     unset(
         $_SESSION["user_id"],
         $_SESSION["user_role"],
+        $_SESSION["role"],
         $_SESSION["user_email"]
     );
-}
-
-
-/* REACTIVATION CONFIRMATION */
-
-if (
-    $_SERVER["REQUEST_METHOD"] === "POST" &&
-    ($_POST["action"] ?? "")
-        === "confirm_reactivation"
-) {
-
-    $reactivationUserId =
-        (int) (
-            $_SESSION[
-                "reactivation_user_id"
-            ] ?? 0
-        );
-
-
-    if ($reactivationUserId <= 0) {
-
-        $error =
-            "Your reactivation session expired. Please sign in again.";
-
-    } else {
-
-        $stmt =
-            $conn->prepare("
-                SELECT
-
-                    id,
-                    email,
-                    role,
-                    account_status,
-                    email_verified
-
-                FROM users
-
-                WHERE id = ?
-
-                LIMIT 1
-            ");
-
-
-        if (!$stmt) {
-
-            $error =
-                "Unable to process account reactivation.";
-
-        } else {
-
-            $stmt->bind_param(
-                "i",
-                $reactivationUserId
-            );
-
-
-            $stmt->execute();
-
-
-            $user =
-                $stmt
-                    ->get_result()
-                    ->fetch_assoc();
-
-
-            $stmt->close();
-
-
-            if (!$user) {
-
-                $error =
-                    "Account could not be found.";
-
-            } elseif (
-                $user["account_status"]
-                !== "deactivated"
-            ) {
-
-                $error =
-                    "This account is no longer deactivated.";
-
-            } elseif (
-                (int) $user[
-                    "email_verified"
-                ] !== 1
-            ) {
-
-                $error =
-                    "This account is not verified.";
-
-            } else {
-
-                $code =
-                    str_pad(
-                        (string) random_int(
-                            0,
-                            999999
-                        ),
-                        6,
-                        "0",
-                        STR_PAD_LEFT
-                    );
-
-
-                unset(
-                    $_SESSION[
-                        "pending_auth_user_id"
-                    ],
-                    $_SESSION[
-                        "pending_auth_purpose"
-                    ],
-                    $_SESSION[
-                        "pending_auth_email"
-                    ],
-                    $_SESSION[
-                        "pending_auth_role"
-                    ],
-                    $_SESSION[
-                        "temporary_auth_code"
-                    ],
-                    $_SESSION[
-                        "temporary_auth_expires"
-                    ]
-                );
-
-
-                $_SESSION[
-                    "pending_auth_user_id"
-                ] =
-                    (int) $user["id"];
-
-
-                $_SESSION[
-                    "pending_auth_purpose"
-                ] =
-                    "reactivation";
-
-
-                $_SESSION[
-                    "pending_auth_email"
-                ] =
-                    $user["email"];
-
-
-                $_SESSION[
-                    "pending_auth_role"
-                ] =
-                    $user["role"];
-
-
-                $_SESSION[
-                    "temporary_auth_code"
-                ] =
-                    $code;
-
-
-                $_SESSION[
-                    "temporary_auth_expires"
-                ] =
-                    time() + 600;
-
-
-                unset(
-                    $_SESSION[
-                        "reactivation_user_id"
-                    ],
-                    $_SESSION[
-                        "reactivation_email"
-                    ]
-                );
-
-
-                header(
-                    "Location: auth.php"
-                );
-
-                exit;
-            }
-        }
-    }
-}
-
-
-/* CANCEL REACTIVATION */
-
-if (
-    $_SERVER["REQUEST_METHOD"] === "POST" &&
-    ($_POST["action"] ?? "")
-        === "cancel_reactivation"
-) {
-
-    unset(
-        $_SESSION[
-            "reactivation_user_id"
-        ],
-        $_SESSION[
-            "reactivation_email"
-        ]
-    );
-
-
-    header(
-        "Location: login.php"
-    );
-
-    exit;
 }
 
 
 /* LOGIN */
 
 if (
-    $_SERVER["REQUEST_METHOD"] === "POST" &&
-    (
-        !isset($_POST["action"]) ||
-        $_POST["action"] === "login"
-    )
+    $_SERVER["REQUEST_METHOD"] === "POST"
 ) {
 
     $email =
@@ -352,7 +142,7 @@ if (
 
                 FROM users
 
-                WHERE email = ?
+                WHERE LOWER(email) = ?
 
                 LIMIT 1
             ");
@@ -361,7 +151,7 @@ if (
         if (!$stmt) {
 
             $error =
-                "Unable to process login right now.";
+                "Unable to process your login right now.";
 
         } else {
 
@@ -395,33 +185,14 @@ if (
                     "Invalid email or password.";
 
             } elseif (
-                (int) $user[
-                    "email_verified"
-                ] !== 1
+                $user["role"] === "student" &&
+                !isCvsuEmail(
+                    $user["email"]
+                )
             ) {
 
                 $error =
-                    "This account has not been verified yet.";
-
-            } elseif (
-                $user["account_status"]
-                === "deactivated"
-            ) {
-
-                $_SESSION[
-                    "reactivation_user_id"
-                ] =
-                    (int) $user["id"];
-
-
-                $_SESSION[
-                    "reactivation_email"
-                ] =
-                    $user["email"];
-
-
-                $showReactivation =
-                    true;
+                    "Student accounts must use a valid CvSU email address.";
 
             } elseif (
                 $user["account_status"]
@@ -441,108 +212,115 @@ if (
 
             } elseif (
                 $user["account_status"]
+                === "pending"
+            ) {
+
+                $error =
+                    "This account is still pending verification.";
+
+            } elseif (
+                $user["account_status"]
+                === "deactivated"
+            ) {
+
+                $_SESSION[
+                    "reactivation_user_id"
+                ] =
+                    (int) $user["id"];
+
+
+                $_SESSION[
+                    "reactivation_email"
+                ] =
+                    $user["email"];
+
+
+                header(
+                    "Location: reactivate_account.php"
+                );
+
+                exit;
+
+            } elseif (
+                $user["account_status"]
                 !== "active"
             ) {
 
                 $error =
                     "This account is not currently active.";
 
+            } elseif (
+                (int) $user[
+                    "email_verified"
+                ] !== 1
+            ) {
+
+                $error =
+                    "This account has not been verified.";
+
             } else {
 
-                $code =
-                    str_pad(
-                        (string) random_int(
-                            0,
-                            999999
-                        ),
-                        6,
-                        "0",
-                        STR_PAD_LEFT
+                try {
+
+                    $code =
+                        createAuthCode(
+                            $conn,
+                            (int) $user["id"],
+                            "login"
+                        );
+
+
+                    sendAuthCode(
+                        $user["email"],
+                        $code,
+                        "login"
                     );
 
 
-                unset(
                     $_SESSION[
                         "pending_auth_user_id"
-                    ],
+                    ] =
+                        (int) $user["id"];
+
+
                     $_SESSION[
                         "pending_auth_purpose"
-                    ],
+                    ] =
+                        "login";
+
+
                     $_SESSION[
                         "pending_auth_email"
-                    ],
+                    ] =
+                        $user["email"];
+
+
                     $_SESSION[
                         "pending_auth_role"
-                    ],
+                    ] =
+                        $user["role"];
+
+
                     $_SESSION[
-                        "temporary_auth_code"
-                    ],
-                    $_SESSION[
-                        "temporary_auth_expires"
-                    ]
-                );
+                        "dev_auth_code"
+                    ] =
+                        $code;
 
 
-                $_SESSION[
-                    "pending_auth_user_id"
-                ] =
-                    (int) $user["id"];
+                    header(
+                        "Location: auth.php"
+                    );
 
+                    exit;
 
-                $_SESSION[
-                    "pending_auth_purpose"
-                ] =
-                    "login";
+                } catch (Throwable $exception) {
 
-
-                $_SESSION[
-                    "pending_auth_email"
-                ] =
-                    $user["email"];
-
-
-                $_SESSION[
-                    "pending_auth_role"
-                ] =
-                    $user["role"];
-
-
-                $_SESSION[
-                    "temporary_auth_code"
-                ] =
-                    $code;
-
-
-                $_SESSION[
-                    "temporary_auth_expires"
-                ] =
-                    time() + 600;
-
-
-                header(
-                    "Location: auth.php"
-                );
-
-                exit;
+                    $error =
+                        "Unable to generate your verification code.";
+                }
             }
         }
     }
-}
-
-
-/* REACTIVATION STATE */
-
-if (
-    !$showReactivation &&
-    isset(
-        $_SESSION[
-            "reactivation_user_id"
-        ]
-    )
-) {
-
-    $showReactivation =
-        true;
 }
 
 ?>
@@ -551,28 +329,23 @@ if (
 
 <html lang="en">
 
-
 <head>
 
     <meta charset="UTF-8">
-
 
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
-
     <title>
         Login | CVSWHO
     </title>
-
 
     <link
         rel="preconnect"
         href="https://fonts.googleapis.com"
     >
-
 
     <link
         rel="preconnect"
@@ -580,156 +353,17 @@ if (
         crossorigin
     >
 
-
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
         rel="stylesheet"
     >
-
 
     <link
         rel="stylesheet"
         href="login.css"
     >
 
-
-    <style>
-
-        .reactivation-box {
-
-            margin-bottom: 20px;
-
-            padding: 20px;
-
-            background:
-                #f3f9f6;
-
-            border:
-                1px solid #cfe5d8;
-
-            border-radius: 12px;
-        }
-
-
-        .reactivation-box h2 {
-
-            color:
-                #003d24;
-
-            font-size: 16px;
-        }
-
-
-        .reactivation-box p {
-
-            margin-top: 8px;
-
-            color:
-                #68766f;
-
-            font-size: 10px;
-
-            line-height: 1.7;
-        }
-
-
-        .reactivation-account {
-
-            margin-top: 12px;
-
-            padding: 11px;
-
-            color:
-                #006b3f;
-
-            background:
-                #e6f3eb;
-
-            border-radius: 8px;
-
-            font-size: 9px;
-
-            font-weight: 700;
-
-            word-break:
-                break-word;
-        }
-
-
-        .reactivation-actions {
-
-            display: flex;
-
-            gap: 9px;
-
-            margin-top: 16px;
-        }
-
-
-        .reactivate-button {
-
-            flex: 1;
-
-            padding: 11px 14px;
-
-            color: white;
-
-            background:
-                #006b3f;
-
-            border:
-                1px solid #006b3f;
-
-            border-radius: 8px;
-
-            font-family: inherit;
-
-            font-size: 10px;
-
-            font-weight: 700;
-
-            cursor: pointer;
-        }
-
-
-        .reactivate-button:hover {
-
-            background:
-                #004d2a;
-        }
-
-
-        .cancel-reactivation {
-
-            flex: 1;
-
-            padding: 11px 14px;
-
-            color:
-                #68766f;
-
-            background:
-                white;
-
-            border:
-                1px solid #dce7e0;
-
-            border-radius: 8px;
-
-            font-family: inherit;
-
-            font-size: 10px;
-
-            font-weight: 700;
-
-            cursor: pointer;
-        }
-
-    </style>
-
-
 </head>
-
 
 <body>
 
@@ -740,258 +374,107 @@ if (
     <div class="auth-container">
 
 
+        <!-- BRAND -->
+
+        <div class="auth-brand">
+
+            <a
+                href="index.php"
+                class="brand"
+            >
+
+                <div class="brand-mark">
+                    C
+                </div>
+
+                <div class="brand-text">
+
+                    <span class="brand-name">
+                        CVSWHO
+                    </span>
+
+                    <span class="brand-subtitle">
+                        Student Profile Management
+                    </span>
+
+                </div>
+
+            </a>
+
+        </div>
+
+
+        <!-- CARD -->
+
         <div class="auth-card">
 
 
-            <!-- BRAND -->
+            <div class="auth-header">
 
-            <div class="auth-brand">
+                <span class="section-label">
+                    ACCOUNT ACCESS
+                </span>
 
+                <h1>
+                    Welcome back
+                </h1>
 
-                <a
-                    href="index.php"
-                    class="brand"
-                >
-
-
-                    <div class="brand-mark">
-                        C
-                    </div>
-
-
-                    <div class="brand-text">
-
-
-                        <span class="brand-name">
-                            CVSWHO
-                        </span>
-
-
-                        <span class="brand-subtitle">
-                            Student Profile Platform
-                        </span>
-
-
-                    </div>
-
-
-                </a>
-
+                <p>
+                    Sign in to continue to your CVSWHO account.
+                </p>
 
             </div>
 
 
-            <?php if ($showReactivation): ?>
+            <?php if (
+                $error !== ""
+            ): ?>
 
+                <div class="alert alert-error">
 
-                <!-- REACTIVATION -->
+                    <span class="alert-icon">
+                        !
+                    </span>
 
-                <div class="auth-header">
-
-
-                    <h1>
-                        Account Deactivated
-                    </h1>
-
-
-                    <p>
-                        This account was previously
-                        deactivated.
-                    </p>
-
-
-                </div>
-
-
-                <?php if (
-                    $error !== ""
-                ): ?>
-
-
-                    <div
-                        class="
-                            alert
-                            alert-error
-                        "
-                    >
+                    <span>
 
                         <?= htmlspecialchars(
                             $error
                         ) ?>
 
-                    </div>
-
-
-                <?php endif; ?>
-
-
-                <div class="reactivation-box">
-
-
-                    <h2>
-                        Reactivate your account?
-                    </h2>
-
-
-                    <p>
-
-                        You can restore access to
-                        your CVSWHO account now.
-
-                        Your profile and saved
-                        records will remain intact.
-
-                        You will need to verify
-                        your account using an OTP
-                        before reactivation is
-                        completed.
-
-                    </p>
-
-
-                    <div class="reactivation-account">
-
-                        <?= htmlspecialchars(
-                            $_SESSION[
-                                "reactivation_email"
-                            ] ?? ""
-                        ) ?>
-
-                    </div>
-
-
-                    <div class="reactivation-actions">
-
-
-                        <form
-                            method="POST"
-                            action="login.php"
-                            style="flex: 1;"
-                        >
-
-
-                            <input
-                                type="hidden"
-                                name="action"
-                                value="confirm_reactivation"
-                            >
-
-
-                            <button
-                                type="submit"
-                                class="reactivate-button"
-                            >
-                                Reactivate Account
-                            </button>
-
-
-                        </form>
-
-
-                        <form
-                            method="POST"
-                            action="login.php"
-                            style="flex: 1;"
-                        >
-
-
-                            <input
-                                type="hidden"
-                                name="action"
-                                value="cancel_reactivation"
-                            >
-
-
-                            <button
-                                type="submit"
-                                class="cancel-reactivation"
-                            >
-                                Cancel
-                            </button>
-
-
-                        </form>
-
-
-                    </div>
-
+                    </span>
 
                 </div>
 
-
-            <?php else: ?>
-
-
-                <!-- HEADER -->
-
-                <div class="auth-header">
+            <?php endif; ?>
 
 
-                    <h1>
-                        Welcome back
-                    </h1>
+            <!-- FORM -->
+
+            <form
+                method="POST"
+                action="login.php"
+                class="auth-form"
+            >
 
 
-                    <p>
-                        Sign in to continue
-                        managing your student profile.
-                    </p>
+                <div class="form-group">
 
+                    <label for="email">
+                        Email Address
+                    </label>
 
-                </div>
+                    <div class="input-wrapper">
 
-
-                <?php if (
-                    $error !== ""
-                ): ?>
-
-
-                    <div
-                        class="
-                            alert
-                            alert-error
-                        "
-                    >
-
-                        <?= htmlspecialchars(
-                            $error
-                        ) ?>
-
-                    </div>
-
-
-                <?php endif; ?>
-
-
-                <!-- LOGIN -->
-
-                <form
-                    method="POST"
-                    action="login.php"
-                    class="auth-form"
-                >
-
-
-                    <input
-                        type="hidden"
-                        name="action"
-                        value="login"
-                    >
-
-
-                    <div class="form-group">
-
-
-                        <label for="email">
-                            CvSU Student Email
-                        </label>
-
+                        <span class="input-icon">
+                            @
+                        </span>
 
                         <input
                             type="email"
                             id="email"
                             name="email"
-                            placeholder="firstname.lastname@cvsu.edu.ph"
+                            placeholder="Enter your email address"
                             value="<?= htmlspecialchars(
                                 $_POST["email"]
                                 ?? ""
@@ -1000,17 +483,32 @@ if (
                             required
                         >
 
-
                     </div>
 
+                    <span class="input-help">
+                        CvSU students use their school email.
+                        Administrators use their assigned administrator email.
+                    </span>
 
-                    <div class="form-group">
+                </div>
 
+
+                <div class="form-group">
+
+                    <div class="label-row">
 
                         <label for="password">
                             Password
                         </label>
 
+                    </div>
+
+
+                    <div class="input-wrapper">
+
+                        <span class="input-icon">
+                            •
+                        </span>
 
                         <input
                             type="password"
@@ -1021,58 +519,155 @@ if (
                             required
                         >
 
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            id="passwordToggle"
+                            aria-label="Show password"
+                        >
+                            Show
+                        </button>
 
                     </div>
-
-
-                    <button
-                        type="submit"
-                        class="auth-button"
-                    >
-                        Login
-                    </button>
-
-
-                </form>
-
-
-                <!-- BOTTOM -->
-
-                <div class="auth-bottom">
-
-
-                    <p>
-
-                        Don't have an account?
-
-                        <a href="register.php">
-                            Create an account
-                        </a>
-
-                    </p>
-
-
-                    <a
-                        href="index.php"
-                        class="back-link"
-                    >
-                        ← Back to home
-                    </a>
-
 
                 </div>
 
 
-            <?php endif; ?>
+                <button
+                    type="submit"
+                    class="auth-button"
+                >
+
+                    Sign In
+
+                    <span class="button-arrow">
+                        →
+                    </span>
+
+                </button>
+
+
+            </form>
+
+
+            <!-- DIVIDER -->
+
+            <div class="auth-divider">
+
+                <span>
+                    STUDENT ACCESS
+                </span>
+
+            </div>
+
+
+            <!-- REGISTER -->
+
+            <div class="auth-bottom">
+
+                <p>
+                    Don't have a student account?
+
+                    <a href="register.php">
+                        Create an account
+                    </a>
+                </p>
+
+                <a
+                    href="index.php"
+                    class="back-link"
+                >
+                    ← Back to home
+                </a>
+
+            </div>
 
 
         </div>
+
+
+        <!-- SECURITY -->
+
+        <div class="auth-security">
+
+            <div class="security-icon">
+                ✓
+            </div>
+
+            <div>
+
+                <strong>
+                    Secure CVSWHO Access
+                </strong>
+
+                <p>
+                    Student and administrator accounts
+                    use the same secure login and are
+                    automatically directed to the correct portal.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <p class="login-note">
+            Administrator accounts cannot be created
+            through student registration.
+        </p>
 
 
     </div>
 
 
 </div>
+
+
+<script>
+
+    const passwordInput =
+        document.getElementById(
+            "password"
+        );
+
+
+    const passwordToggle =
+        document.getElementById(
+            "passwordToggle"
+        );
+
+
+    passwordToggle.addEventListener(
+        "click",
+        function () {
+
+            const showing =
+                passwordInput.type ===
+                "text";
+
+
+            passwordInput.type =
+                showing
+                    ? "password"
+                    : "text";
+
+
+            passwordToggle.textContent =
+                showing
+                    ? "Show"
+                    : "Hide";
+
+
+            passwordToggle.setAttribute(
+                "aria-label",
+                showing
+                    ? "Show password"
+                    : "Hide password"
+            );
+        }
+    );
+
+</script>
 
 
 </body>
