@@ -1,10 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-
-/* ================================
-   Variables
-================================ */
-
 :root {
     --primary-green: #006b3f;
     --deep-green: #004d2a;
@@ -26,22 +21,15 @@
     --transition: 0.25s ease;
 }
 
-
-/* ================================
-   Reset
-================================ */
-
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
-
 html {
     scroll-behavior: smooth;
 }
-
 
 body {
     min-height: 100vh;
@@ -53,16 +41,10 @@ body {
     background: var(--very-light-green);
 }
 
-
 a {
     color: inherit;
     text-decoration: none;
 }
-
-
-/* ================================
-   Navbar
-================================ */
 
 .navbar {
     position: sticky;
@@ -77,7 +59,6 @@ a {
 
     backdrop-filter: blur(16px);
 }
-
 
 .nav-container {
     width: min(1180px, calc(100% - 40px));
@@ -95,9 +76,6 @@ a {
     gap: 30px;
 }
 
-
-/* Brand */
-
 .brand {
     display: flex;
 
@@ -107,7 +85,6 @@ a {
 
     flex-shrink: 0;
 }
-
 
 .brand-mark {
     width: 40px;
@@ -128,7 +105,6 @@ a {
     font-weight: 700;
 }
 
-
 .brand-text {
     display: flex;
 
@@ -136,7 +112,6 @@ a {
 
     gap: 3px;
 }
-
 
 .brand-name {
     color: var(--dark-green);
@@ -146,7 +121,6 @@ a {
     font-weight: 700;
 }
 
-
 .brand-subtitle {
     color: var(--text-medium);
 
@@ -155,9 +129,6 @@ a {
     font-weight: 500;
 }
 
-
-/* Navigation */
-
 .desktop-nav {
     display: flex;
 
@@ -165,7 +136,6 @@ a {
 
     gap: 30px;
 }
-
 
 .nav-link {
     position: relative;
@@ -180,7 +150,6 @@ a {
 
     transition: color var(--transition);
 }
-
 
 .nav-link::after {
     content: "";
@@ -203,19 +172,14 @@ a {
     transition: transform var(--transition);
 }
 
-
 .nav-link:hover,
 .nav-link.active {
     color: var(--primary-green);
 }
 
-
 .nav-link.active::after {
     transform: scaleX(1);
 }
-
-
-/* Logout */
 
 .logout-button {
     padding: 9px 16px;
@@ -233,17 +197,11 @@ a {
     transition: all var(--transition);
 }
 
-
 .logout-button:hover {
     color: var(--white);
 
     background: var(--primary-green);
 }
-
-
-/* ================================
-   Dashboard
-================================ */
 
 .dashboard {
     width: min(1080px, calc(100% - 40px));
@@ -252,11 +210,6 @@ a {
 
     padding: 55px 0 75px;
 }
-
-
-/* ================================
-   Welcome
-================================ */
 
 .welcome-section {
     display: flex;
@@ -269,7 +222,6 @@ a {
 
     margin-bottom: 35px;
 }
-
 
 .eyebrow,
 .section-label {
@@ -284,7 +236,6 @@ a {
     letter-spacing: 1.2px;
 }
 
-
 .welcome-section h1 {
     margin-top: 8px;
 
@@ -294,7 +245,6 @@ a {
 
     line-height: 1.2;
 }
-
 
 .welcome-section p {
     max-width: 620px;
@@ -307,9 +257,6 @@ a {
 
     line-height: 1.7;
 }
-
-
-/* Main button */
 
 .primary-button {
     display: inline-flex;
@@ -335,17 +282,11 @@ a {
     transition: all var(--transition);
 }
 
-
 .primary-button:hover {
     background: var(--deep-green);
 
     transform: translateY(-1px);
 }
-
-
-/* ================================
-   Profile Completion
-================================ */
 
 .completion-card {
     padding: 28px 30px;
@@ -361,7 +302,6 @@ a {
     box-shadow: var(--shadow);
 }
 
-
 .completion-content {
     display: flex;
 
@@ -372,7 +312,6 @@ a {
     gap: 30px;
 }
 
-
 .completion-card h2 {
     margin-top: 7px;
 
@@ -380,7 +319,6 @@ a {
 
     font-size: 21px;
 }
-
 
 .completion-card p {
     max-width: 680px;
@@ -393,9 +331,6 @@ a {
 
     line-height: 1.6;
 }
-
-
-/* Circular progress */
 
 .progress-circle {
     width: 86px;
@@ -416,7 +351,6 @@ a {
         );
 }
 
-
 .progress-circle-inner {
     width: 68px;
     height: 68px;
@@ -434,13 +368,11 @@ a {
     border-radius: 50%;
 }
 
-
 .progress-circle-inner strong {
     color: var(--dark-green);
 
     font-size: 16px;
 }
-
 
 .progress-circle-inner span {
     margin-top: 2px;
@@ -449,9 +381,6 @@ a {
 
     font-size: 8px;
 }
-
-
-/* Horizontal progress */
 
 .progress-bar {
     height: 6px;
@@ -465,7 +394,6 @@ a {
     border-radius: 10px;
 }
 
-
 .progress-fill {
     height: 100%;
 
@@ -476,11 +404,6 @@ a {
     transition: width 0.5s ease;
 }
 
-
-/* ================================
-   Profile Overview
-================================ */
-
 .overview-grid {
     display: grid;
 
@@ -490,7 +413,6 @@ a {
 
     margin-bottom: 40px;
 }
-
 
 .overview-card {
     padding: 26px;
@@ -504,7 +426,6 @@ a {
     box-shadow: var(--shadow);
 }
 
-
 .card-header,
 .section-heading {
     display: flex;
@@ -516,7 +437,6 @@ a {
     gap: 20px;
 }
 
-
 .card-header h2,
 .section-heading h2 {
     margin-top: 7px;
@@ -525,9 +445,6 @@ a {
 
     font-size: 18px;
 }
-
-
-/* Status */
 
 .status-badge {
     padding: 5px 9px;
@@ -543,9 +460,6 @@ a {
     font-weight: 700;
 }
 
-
-/* Profile information */
-
 .profile-details {
     display: flex;
 
@@ -555,7 +469,6 @@ a {
 
     margin: 25px 0;
 }
-
 
 .avatar {
     width: 58px;
@@ -578,13 +491,15 @@ a {
     font-weight: 700;
 }
 
+.avatar-image {
+    object-fit: cover;
+}
 
 .profile-details h3 {
     color: var(--text-dark);
 
     font-size: 14px;
 }
-
 
 .profile-details p {
     margin-top: 5px;
@@ -593,7 +508,6 @@ a {
 
     font-size: 11px;
 }
-
 
 .profile-details span {
     display: inline-block;
@@ -605,8 +519,43 @@ a {
     font-size: 10px;
 }
 
+.profile-meta {
+    display: flex;
 
-/* Visibility */
+    gap: 30px;
+
+    margin-bottom: 20px;
+
+    padding-top: 15px;
+
+    border-top: 1px solid var(--border-color);
+}
+
+.profile-meta div {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+}
+
+.profile-meta span {
+    color: var(--text-medium);
+
+    font-size: 9px;
+
+    font-weight: 600;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.5px;
+}
+
+.profile-meta strong {
+    color: var(--dark-green);
+
+    font-size: 10px;
+}
 
 .visibility-icon {
     width: 30px;
@@ -627,7 +576,6 @@ a {
     font-weight: 700;
 }
 
-
 .visibility-card > p {
     margin: 25px 0;
 
@@ -637,9 +585,6 @@ a {
 
     line-height: 1.7;
 }
-
-
-/* Links */
 
 .text-link {
     color: var(--primary-green);
@@ -651,25 +596,17 @@ a {
     transition: color var(--transition);
 }
 
-
 .text-link:hover {
     color: var(--deep-green);
 }
-
-
-/* ================================
-   Quick Actions
-================================ */
 
 .quick-actions {
     margin-bottom: 45px;
 }
 
-
 .section-heading {
     margin-bottom: 18px;
 }
-
 
 .action-grid {
     display: grid;
@@ -678,7 +615,6 @@ a {
 
     gap: 15px;
 }
-
 
 .action-card {
     position: relative;
@@ -700,7 +636,6 @@ a {
     transition: all var(--transition);
 }
 
-
 .action-card:hover {
     border-color: rgba(0, 107, 63, 0.35);
 
@@ -708,7 +643,6 @@ a {
 
     transform: translateY(-2px);
 }
-
 
 .action-icon {
     width: 34px;
@@ -731,13 +665,11 @@ a {
     font-weight: 700;
 }
 
-
 .action-card h3 {
     color: var(--dark-green);
 
     font-size: 12px;
 }
-
 
 .action-card p {
     margin-top: 5px;
@@ -749,7 +681,6 @@ a {
     line-height: 1.5;
 }
 
-
 .action-arrow {
     margin-left: auto;
 
@@ -758,15 +689,9 @@ a {
     font-size: 15px;
 }
 
-
-/* ================================
-   Accomplishments
-================================ */
-
 .accomplishments-section {
     margin-bottom: 20px;
 }
-
 
 .accomplishment-list {
     overflow: hidden;
@@ -780,7 +705,6 @@ a {
     box-shadow: var(--shadow);
 }
 
-
 .accomplishment-item {
     display: flex;
 
@@ -793,11 +717,9 @@ a {
     border-bottom: 1px solid var(--border-color);
 }
 
-
 .accomplishment-item:last-child {
     border-bottom: none;
 }
-
 
 .achievement-icon {
     width: 34px;
@@ -820,18 +742,15 @@ a {
     font-weight: 700;
 }
 
-
 .achievement-info {
     flex: 1;
 }
-
 
 .achievement-info h3 {
     color: var(--dark-green);
 
     font-size: 12px;
 }
-
 
 .achievement-info p {
     margin-top: 4px;
@@ -841,17 +760,82 @@ a {
     font-size: 10px;
 }
 
-
 .achievement-date {
     color: var(--text-medium);
 
     font-size: 10px;
 }
 
+.empty-accomplishments {
+    display: flex;
 
-/* ================================
-   Footer
-================================ */
+    align-items: center;
+
+    gap: 15px;
+
+    padding: 28px 22px;
+}
+
+.empty-achievement-icon {
+    width: 42px;
+    height: 42px;
+
+    display: grid;
+
+    place-items: center;
+
+    flex-shrink: 0;
+
+    color: var(--primary-green);
+
+    background: var(--light-green);
+
+    border-radius: 50%;
+
+    font-size: 18px;
+
+    font-weight: 500;
+}
+
+.empty-accomplishments h3 {
+    color: var(--dark-green);
+
+    font-size: 12px;
+}
+
+.empty-accomplishments p {
+    margin-top: 5px;
+
+    color: var(--text-medium);
+
+    font-size: 10px;
+
+    line-height: 1.5;
+}
+
+.empty-action {
+    margin-left: auto;
+
+    padding: 9px 13px;
+
+    color: var(--white);
+
+    background: var(--primary-green);
+
+    border-radius: 7px;
+
+    font-size: 10px;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+
+    transition: all var(--transition);
+}
+
+.empty-action:hover {
+    background: var(--deep-green);
+}
 
 .footer {
     padding: 25px 20px;
@@ -863,7 +847,6 @@ a {
     border-top: 1px solid var(--border-color);
 }
 
-
 .footer p {
     color: var(--dark-green);
 
@@ -871,7 +854,6 @@ a {
 
     font-weight: 700;
 }
-
 
 .footer span {
     display: block;
@@ -883,29 +865,21 @@ a {
     font-size: 10px;
 }
 
-
-/* ================================
-   Responsive
-================================ */
-
 @media (max-width: 850px) {
 
     .desktop-nav {
         display: none;
     }
 
-
     .overview-grid {
         grid-template-columns: 1fr;
     }
-
 
     .action-grid {
         grid-template-columns: 1fr;
     }
 
 }
-
 
 @media (max-width: 600px) {
 
@@ -914,16 +888,13 @@ a {
         width: min(100% - 28px, 1080px);
     }
 
-
     .nav-container {
         min-height: 68px;
     }
 
-
     .brand-subtitle {
         display: none;
     }
-
 
     .welcome-section {
         align-items: flex-start;
@@ -931,46 +902,48 @@ a {
         flex-direction: column;
     }
 
-
     .welcome-section h1 {
         font-size: 27px;
     }
-
 
     .completion-content {
         align-items: flex-start;
     }
 
-
     .completion-card {
         padding: 23px;
     }
-
 
     .progress-circle {
         width: 70px;
         height: 70px;
     }
 
-
     .progress-circle-inner {
         width: 56px;
         height: 56px;
     }
 
-
     .progress-circle-inner strong {
         font-size: 13px;
     }
-
 
     .progress-circle-inner span {
         font-size: 7px;
     }
 
-
     .achievement-date {
         display: none;
+    }
+
+    .empty-accomplishments {
+        align-items: flex-start;
+
+        flex-wrap: wrap;
+    }
+
+    .empty-action {
+        margin-left: 57px;
     }
 
 }
