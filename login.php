@@ -5,7 +5,6 @@ session_start();
 require_once "db.php";
 require_once "auth_functions.php";
 
-
 $error = "";
 
 
@@ -23,11 +22,8 @@ if (isset($_SESSION["user_id"])) {
                 role,
                 account_status,
                 email_verified
-
             FROM users
-
             WHERE id = ?
-
             LIMIT 1
         ");
 
@@ -132,18 +128,14 @@ if (
         $stmt =
             $conn->prepare("
                 SELECT
-
                     id,
                     email,
                     password_hash,
                     role,
                     account_status,
                     email_verified
-
                 FROM users
-
                 WHERE LOWER(email) = ?
-
                 LIMIT 1
             ");
 
@@ -270,6 +262,14 @@ if (
                         );
 
 
+                    /*
+                        Email sending can fail locally
+                        before PHPMailer is configured.
+
+                        We still generate the OTP
+                        for local development testing.
+                    */
+
                     sendAuthCode(
                         $user["email"],
                         $code,
@@ -300,6 +300,13 @@ if (
                     ] =
                         $user["role"];
 
+
+                    /*
+                        DEVELOPMENT ONLY
+
+                        auth.php displays this OTP
+                        while PHPMailer is not yet configured.
+                    */
 
                     $_SESSION[
                         "dev_auth_code"

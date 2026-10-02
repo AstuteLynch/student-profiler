@@ -7,10 +7,21 @@ require_once "auth_functions.php";
 
 $error = "";
 
+/* ALREADY LOGGED IN */
+
 if (isset($_SESSION["user_id"])) {
-    header("Location: student_dashboard.php");
+    $role = $_SESSION["user_role"] ?? $_SESSION["role"] ?? "student";
+
+    if ($role === "administrator") {
+        header("Location: admin_dashboard.php");
+    } else {
+        header("Location: student_dashboard.php");
+    }
+
     exit;
 }
+
+/* REGISTER */
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
@@ -28,198 +39,346 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $password === "" ||
         $confirmPassword === ""
     ) {
-
         $error = "Please fill in all required fields.";
 
     } elseif (!isCvsuEmail($email)) {
-
-        $error = "Please use a CvSU student email in the format firstname.lastname@cvsu.edu.ph.";
+        $error =
+            "Please use a CvSU student email in the format firstname.lastname@cvsu.edu.ph.";
 
     } elseif (strlen($password) < 8) {
-
-        $error = "Password must be at least 8 characters.";
+        $error =
+            "Password must be at least 8 characters.";
 
     } elseif (!preg_match('/[A-Z]/', $password)) {
-
-        $error = "Password must contain at least one uppercase letter.";
+        $error =
+            "Password must contain at least one uppercase letter.";
 
     } elseif (!preg_match('/[a-z]/', $password)) {
-
-        $error = "Password must contain at least one lowercase letter.";
+        $error =
+            "Password must contain at least one lowercase letter.";
 
     } elseif (!preg_match('/[0-9]/', $password)) {
-
-        $error = "Password must contain at least one number.";
+        $error =
+            "Password must contain at least one number.";
 
     } elseif ($password !== $confirmPassword) {
-
-        $error = "Passwords do not match.";
+        $error =
+            "Passwords do not match.";
 
     } else {
 
         $check = $conn->prepare("
-            SELECT id, email_verified
+            SELECT
+                id,
+                email_verified,
+                role,
+                account_status
             FROM users
             WHERE email = ?
             LIMIT 1
         ");
 
-        $check->bind_param("s", $email);
-        $check->execute();
-
-        $existing = $check->get_result()->fetch_assoc();
-
-        if ($existing && $existing["email_verified"]) {
-
-            $error = "This email is already registered. Please login instead.";
-
-        } elseif ($existing) {
-
-            $userId = (int) $existing["id"];
-
-            $passwordHash = password_hash(
-                $password,
-                PASSWORD_DEFAULT
-            );
-
-            $update = $conn->prepare("
-                UPDATE users
-                SET password_hash = ?,
-                    account_status = 'pending',
-                    email_verified = 0
-                WHERE id = ?
-            ");
-
-            $update->bind_param(
-                "si",
-                $passwordHash,
-                $userId
-            );
-
-            $update->execute();
-
-            $profile = $conn->prepare("
-                INSERT INTO student_profiles
-                (user_id, first_name, middle_name, last_name)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    first_name = VALUES(first_name),
-                    middle_name = VALUES(middle_name),
-                    last_name = VALUES(last_name)
-            ");
-
-            $profile->bind_param(
-                "isss",
-                $userId,
-                $firstName,
-                $middleName,
-                $lastName
-            );
-
-            $profile->execute();
-
-            $code = str_pad(
-                (string) random_int(0, 999999),
-                6,
-                "0",
-                STR_PAD_LEFT
-            );
-
-            $_SESSION["pending_auth_user_id"] = $userId;
-            $_SESSION["pending_auth_purpose"] = "registration";
-            $_SESSION["pending_auth_email"] = $email;
-            $_SESSION["pending_auth_role"] = "student";
-            $_SESSION["temporary_auth_code"] = $code;
-            $_SESSION["temporary_auth_expires"] = time() + 600;
-
-            header("Location: auth.php");
-            exit;
+        if (!$check) {
+            $error =
+                "Unable to check the email address.";
 
         } else {
-
-            $passwordHash = password_hash(
-                $password,
-                PASSWORD_DEFAULT
+            $check->bind_param(
+                "s",
+                $email
             );
 
-            $stmt = $conn->prepare("
-                INSERT INTO users
-                (email, password_hash, role, account_status, email_verified)
-                VALUES (?, ?, 'student', 'pending', 0)
-            ");
+            $check->execute();
 
-            $stmt->bind_param(
-                "ss",
-                $email,
-                $passwordHash
-            );
+            $existing =
+                $check
+                    ->get_result()
+                    ->fetch_assoc();
 
-            if (!$stmt->execute()) {
+            $check->close();
 
-                $error = "We could not create your account. Please try again.";
+            /* EXISTING VERIFIED ACCOUNT */
+
+            if (
+                $existing &&
+                (int) $existing["email_verified"] === 1
+            ) {
+                $error =
+                    "This email is already registered. Please login instead.";
+
+            /* EXISTING UNVERIFIED ACCOUNT */
+
+            } elseif ($existing) {
+
+                if (
+                    ($existing["role"] ?? "") !== "student"
+                ) {
+                    $error =
+                        "This email cannot be registered as a student.";
+
+                } else {
+                    $userId =
+                        (int) $existing["id"];
+
+                    $passwordHash =
+                        password_hash(
+                            $password,
+                            PASSWORD_DEFAULT
+                        );
+
+                    $update = $conn->prepare("
+                        UPDATE users
+                        SET
+                            password_hash = ?,
+                            account_status = 'pending',
+                            email_verified = 0
+                        WHERE
+                            id = ?
+                            AND role = 'student'
+                    ");
+
+                    if (!$update) {
+                        $error =
+                            "Unable to update the account.";
+
+                    } else {
+                        $update->bind_param(
+                            "si",
+                            $passwordHash,
+                            $userId
+                        );
+
+                        if (!$update->execute()) {
+                            $error =
+                                "Unable to update the account.";
+                        }
+
+                        $update->close();
+                    }
+
+                    if ($error === "") {
+
+                        $profile = $conn->prepare("
+                            INSERT INTO student_profiles (
+                                user_id,
+                                first_name,
+                                middle_name,
+                                last_name
+                            )
+                            VALUES (?, ?, ?, ?)
+
+                            ON DUPLICATE KEY UPDATE
+                                first_name = VALUES(first_name),
+                                middle_name = VALUES(middle_name),
+                                last_name = VALUES(last_name)
+                        ");
+
+                        if (!$profile) {
+                            $error =
+                                "Unable to update the student profile.";
+
+                        } else {
+                            $profile->bind_param(
+                                "isss",
+                                $userId,
+                                $firstName,
+                                $middleName,
+                                $lastName
+                            );
+
+                            if (!$profile->execute()) {
+                                $error =
+                                    "Unable to update the student profile.";
+                            }
+
+                            $profile->close();
+                        }
+                    }
+
+                    if ($error === "") {
+
+                        $code = createAuthCode(
+                            $conn,
+                            $userId,
+                            "registration"
+                        );
+
+                        /* DEVELOPMENT ONLY */
+
+                        $_SESSION["dev_auth_code"] =
+                            $code;
+
+                        $_SESSION["pending_auth_user_id"] =
+                            $userId;
+
+                        $_SESSION["pending_auth_purpose"] =
+                            "registration";
+
+                        $_SESSION["pending_auth_email"] =
+                            $email;
+
+                        $_SESSION["pending_auth_role"] =
+                            "student";
+
+                        header(
+                            "Location: auth.php"
+                        );
+
+                        exit;
+                    }
+                }
+
+            /* NEW ACCOUNT */
 
             } else {
 
-                $userId = $stmt->insert_id;
+                $passwordHash =
+                    password_hash(
+                        $password,
+                        PASSWORD_DEFAULT
+                    );
 
-                $profile = $conn->prepare("
-                    INSERT INTO student_profiles
-                    (user_id, first_name, middle_name, last_name)
-                    VALUES (?, ?, ?, ?)
+                $stmt = $conn->prepare("
+                    INSERT INTO users (
+                        email,
+                        password_hash,
+                        role,
+                        account_status,
+                        email_verified
+                    )
+                    VALUES (
+                        ?,
+                        ?,
+                        'student',
+                        'pending',
+                        0
+                    )
                 ");
 
-                $profile->bind_param(
-                    "isss",
-                    $userId,
-                    $firstName,
-                    $middleName,
-                    $lastName
-                );
+                if (!$stmt) {
+                    $error =
+                        "We could not create your account.";
 
-                $profile->execute();
+                } else {
+                    $stmt->bind_param(
+                        "ss",
+                        $email,
+                        $passwordHash
+                    );
 
-                $profileSettings = $conn->prepare("
-                    INSERT INTO profile_settings
-                    (user_id)
-                    VALUES (?)
-                ");
+                    if (!$stmt->execute()) {
+                        $error =
+                            "We could not create your account. Please try again.";
 
-                $profileSettings->bind_param(
-                    "i",
-                    $userId
-                );
+                    } else {
+                        $userId =
+                            (int) $stmt->insert_id;
+                    }
 
-                $profileSettings->execute();
+                    $stmt->close();
+                }
 
-                $privacySettings = $conn->prepare("
-                    INSERT INTO privacy_settings
-                    (user_id)
-                    VALUES (?)
-                ");
+                if ($error === "") {
 
-                $privacySettings->bind_param(
-                    "i",
-                    $userId
-                );
+                    $profile = $conn->prepare("
+                        INSERT INTO student_profiles (
+                            user_id,
+                            first_name,
+                            middle_name,
+                            last_name
+                        )
+                        VALUES (?, ?, ?, ?)
+                    ");
 
-                $privacySettings->execute();
+                    if (!$profile) {
+                        $error =
+                            "Unable to create the student profile.";
 
-                $code = str_pad(
-                    (string) random_int(0, 999999),
-                    6,
-                    "0",
-                    STR_PAD_LEFT
-                );
+                    } else {
+                        $profile->bind_param(
+                            "isss",
+                            $userId,
+                            $firstName,
+                            $middleName,
+                            $lastName
+                        );
 
-                $_SESSION["pending_auth_user_id"] = $userId;
-                $_SESSION["pending_auth_purpose"] = "registration";
-                $_SESSION["pending_auth_email"] = $email;
-                $_SESSION["pending_auth_role"] = "student";
-                $_SESSION["temporary_auth_code"] = $code;
-                $_SESSION["temporary_auth_expires"] = time() + 600;
+                        if (!$profile->execute()) {
+                            $error =
+                                "Unable to create the student profile.";
+                        }
 
-                header("Location: auth.php");
-                exit;
+                        $profile->close();
+                    }
+                }
+
+                if ($error === "") {
+
+                    $profileSettings =
+                        $conn->prepare("
+                            INSERT INTO profile_settings (
+                                user_id
+                            )
+                            VALUES (?)
+                        ");
+
+                    if ($profileSettings) {
+                        $profileSettings->bind_param(
+                            "i",
+                            $userId
+                        );
+
+                        $profileSettings->execute();
+                        $profileSettings->close();
+                    }
+
+                    $privacySettings =
+                        $conn->prepare("
+                            INSERT INTO privacy_settings (
+                                user_id
+                            )
+                            VALUES (?)
+                        ");
+
+                    if ($privacySettings) {
+                        $privacySettings->bind_param(
+                            "i",
+                            $userId
+                        );
+
+                        $privacySettings->execute();
+                        $privacySettings->close();
+                    }
+
+                    $code = createAuthCode(
+                        $conn,
+                        $userId,
+                        "registration"
+                    );
+
+                    /* DEVELOPMENT ONLY */
+
+                    $_SESSION["dev_auth_code"] =
+                        $code;
+
+                    $_SESSION["pending_auth_user_id"] =
+                        $userId;
+
+                    $_SESSION["pending_auth_purpose"] =
+                        "registration";
+
+                    $_SESSION["pending_auth_email"] =
+                        $email;
+
+                    $_SESSION["pending_auth_role"] =
+                        "student";
+
+                    header(
+                        "Location: auth.php"
+                    );
+
+                    exit;
+                }
             }
         }
     }
@@ -239,7 +398,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Register | CVSWHO</title>
+    <title>
+        Register | CVSWHO
+    </title>
 
     <link
         rel="preconnect"
@@ -270,44 +431,48 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     <div class="auth-container">
 
+        <div class="auth-brand">
+
+            <a
+                href="index.php"
+                class="brand"
+            >
+
+                <div class="brand-mark">
+                    C
+                </div>
+
+                <div class="brand-text">
+
+                    <span class="brand-name">
+                        CVSWHO
+                    </span>
+
+                    <span class="brand-subtitle">
+                        Student Profile Management
+                    </span>
+
+                </div>
+
+            </a>
+
+        </div>
+
+
         <div class="auth-card">
-
-            <div class="auth-brand">
-
-                <a
-                    href="index.php"
-                    class="brand"
-                >
-
-                    <div class="brand-mark">
-                        C
-                    </div>
-
-                    <div class="brand-text">
-
-                        <span class="brand-name">
-                            CVSWHO
-                        </span>
-
-                        <span class="brand-subtitle">
-                            Student profile management system
-                        </span>
-
-                    </div>
-
-                </a>
-
-            </div>
-
 
             <div class="auth-header">
 
+                <span class="section-label">
+                    CREATE YOUR ACCOUNT
+                </span>
+
                 <h1>
-                    Create your account
+                    Register as a CvSU student
                 </h1>
 
                 <p>
-                    Set up your account to start building your student profile.
+                    Create your CVSWHO account using your official CvSU student email.
                 </p>
 
             </div>
@@ -316,7 +481,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <?php if ($error !== ""): ?>
 
                 <div class="alert alert-error">
-                    <?= htmlspecialchars($error) ?>
+
+                    <?= htmlspecialchars(
+                        $error
+                    ) ?>
+
                 </div>
 
             <?php endif; ?>
@@ -341,7 +510,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             id="first_name"
                             name="first_name"
                             placeholder="First name"
-                            value="<?= htmlspecialchars($_POST["first_name"] ?? "") ?>"
+                            value="<?= htmlspecialchars(
+                                $_POST["first_name"] ?? ""
+                            ) ?>"
                             required
                         >
 
@@ -359,7 +530,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             id="last_name"
                             name="last_name"
                             placeholder="Last name"
-                            value="<?= htmlspecialchars($_POST["last_name"] ?? "") ?>"
+                            value="<?= htmlspecialchars(
+                                $_POST["last_name"] ?? ""
+                            ) ?>"
                             required
                         >
 
@@ -379,7 +552,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         id="middle_name"
                         name="middle_name"
                         placeholder="Middle name"
-                        value="<?= htmlspecialchars($_POST["middle_name"] ?? "") ?>"
+                        value="<?= htmlspecialchars(
+                            $_POST["middle_name"] ?? ""
+                        ) ?>"
                     >
 
                 </div>
@@ -397,7 +572,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         name="email"
                         placeholder="firstname.lastname@cvsu.edu.ph"
                         pattern="[A-Za-z]+\.[A-Za-z]+@cvsu\.edu\.ph"
-                        value="<?= htmlspecialchars($_POST["email"] ?? "") ?>"
+                        value="<?= htmlspecialchars(
+                            $_POST["email"] ?? ""
+                        ) ?>"
                         required
                     >
 
@@ -456,16 +633,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </form>
 
 
+            <div class="auth-divider">
+                <span>
+                    OR
+                </span>
+            </div>
+
+
             <div class="auth-bottom">
 
                 <p>
-
                     Already have an account?
 
                     <a href="login.php">
                         Login
                     </a>
-
                 </p>
 
                 <a
@@ -474,6 +656,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 >
                     ← Back to home
                 </a>
+
+            </div>
+
+        </div>
+
+
+        <div class="auth-security">
+
+            <span class="security-icon">
+                ✓
+            </span>
+
+            <div>
+
+                <strong>
+                    CvSU Student Verification
+                </strong>
+
+                <p>
+                    Your official CvSU email will be verified before your account is activated.
+                </p>
 
             </div>
 
