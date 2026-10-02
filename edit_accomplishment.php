@@ -723,7 +723,7 @@ if (
 
             <a
                 href="accomplishments.php"
-                class="nav-link active"
+                class="nav-link"
             >
                 Accomplishments
             </a>
@@ -733,6 +733,13 @@ if (
                 class="nav-link"
             >
                 Privacy
+            </a>
+
+            <a
+                href="settings.php"
+                class="nav-link"
+            >
+                Settings
             </a>
 
         </nav>

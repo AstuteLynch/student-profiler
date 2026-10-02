@@ -1190,8 +1190,7 @@ function portfolioYearRange(
         </a>
 
 
-        <nav class="desktop-nav">
-
+       <nav class="desktop-nav">
 
             <a
                 href="student_dashboard.php"
@@ -1200,14 +1199,12 @@ function portfolioYearRange(
                 Dashboard
             </a>
 
-
             <a
                 href="student_profile.php"
                 class="nav-link"
             >
                 Profile
             </a>
-
 
             <a
                 href="accomplishments.php"
@@ -1216,7 +1213,6 @@ function portfolioYearRange(
                 Accomplishments
             </a>
 
-
             <a
                 href="privacy.php"
                 class="nav-link"
@@ -1224,6 +1220,12 @@ function portfolioYearRange(
                 Privacy
             </a>
 
+            <a
+                href="settings.php"
+                class="nav-link"
+            >
+                Settings
+            </a>
 
         </nav>
 
