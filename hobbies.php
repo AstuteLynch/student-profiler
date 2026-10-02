@@ -1387,6 +1387,12 @@ $totalInterests =
             >
                 Accomplishments
             </a>
+    <a
+        href="organizations.php"
+        class="nav-link"
+    >
+        Organizations
+    </a>
 
             <a
                 href="privacy.php"

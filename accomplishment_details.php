@@ -414,6 +414,12 @@ $documentName =
             >
                 Accomplishments
             </a>
+    <a
+        href="organizations.php"
+        class="nav-link"
+    >
+        Organizations
+    </a>
 
             <a
                 href="privacy.php"
@@ -474,6 +480,12 @@ $documentName =
         >
             ← Back to Accomplishments
         </a>
+    <a
+        href="organizations.php"
+        class="nav-link"
+    >
+        Organizations
+    </a>
 
 
     </section>

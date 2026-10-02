@@ -1466,6 +1466,12 @@ $tabTitle =
             >
                 Accomplishments
             </a>
+    <a
+        href="organizations.php"
+        class="nav-link"
+    >
+        Organizations
+    </a>
 
 
             <a
@@ -2856,6 +2862,8 @@ $tabTitle =
     );
 
 </script>
+
+<script src="main.js"></script>
 
 
 </body>
