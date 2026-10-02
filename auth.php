@@ -5,47 +5,29 @@ session_start();
 require_once "db.php";
 
 
-/* =========================================================
-   REQUIRE PENDING AUTHENTICATION
-========================================================= */
+/* PENDING AUTH */
 
 if (
     !isset(
         $_SESSION[
             "pending_auth_user_id"
-        ]
-    ) ||
-
-    !isset(
+        ],
         $_SESSION[
             "pending_auth_purpose"
-        ]
-    ) ||
-
-    !isset(
+        ],
         $_SESSION[
             "temporary_auth_code"
-        ]
-    ) ||
-
-    !isset(
+        ],
         $_SESSION[
             "temporary_auth_expires"
         ]
     )
 ) {
 
-    header(
-        "Location: login.php"
-    );
-
+    header("Location: login.php");
     exit;
 }
 
-
-/* =========================================================
-   AUTH INFORMATION
-========================================================= */
 
 $error = "";
 
@@ -61,22 +43,19 @@ $userId =
 $purpose =
     $_SESSION[
         "pending_auth_purpose"
-    ]
-    ?? "login";
+    ] ?? "";
 
 
 $email =
     $_SESSION[
         "pending_auth_email"
-    ]
-    ?? "";
+    ] ?? "";
 
 
 $role =
     $_SESSION[
         "pending_auth_role"
-    ]
-    ?? "student";
+    ] ?? "student";
 
 
 $temporaryCode =
@@ -91,17 +70,20 @@ $expires =
     ];
 
 
-/* =========================================================
-   VALID PURPOSE
-========================================================= */
+/* PURPOSE */
+
+$allowedPurposes = [
+
+    "registration",
+    "login",
+    "reactivation"
+];
+
 
 if (
     !in_array(
         $purpose,
-        [
-            "registration",
-            "login"
-        ],
+        $allowedPurposes,
         true
     )
 ) {
@@ -128,17 +110,12 @@ if (
     );
 
 
-    header(
-        "Location: login.php"
-    );
-
+    header("Location: login.php");
     exit;
 }
 
 
-/* =========================================================
-   PAGE TEXT
-========================================================= */
+/* PAGE TEXT */
 
 if (
     $purpose === "registration"
@@ -156,9 +133,27 @@ if (
         "Enter the temporary verification code to finish creating your CVSWHO account.";
 
 
-    $verifyButtonText =
+    $buttonText =
         "Verify Account";
 
+} elseif (
+    $purpose === "reactivation"
+) {
+
+    $pageLabel =
+        "ACCOUNT REACTIVATION";
+
+
+    $pageTitle =
+        "Verify Reactivation";
+
+
+    $pageDescription =
+        "Enter the temporary verification code to reactivate your CVSWHO account.";
+
+
+    $buttonText =
+        "Reactivate Account";
 
 } else {
 
@@ -171,56 +166,39 @@ if (
 
 
     $pageDescription =
-        "Your password was accepted. Enter the temporary verification code to complete your login.";
+        "Enter the temporary verification code to complete your login.";
 
 
-    $verifyButtonText =
+    $buttonText =
         "Verify Login";
 }
 
 
-/* =========================================================
-   EXPIRED CODE
-========================================================= */
-
-if (
-    time() > $expires
-) {
-
-    $error =
-        "Your verification code has expired. Generate a new code below.";
-}
-
-
-/* =========================================================
-   VERIFY CODE
-========================================================= */
+/* VERIFY */
 
 if (
     $_SERVER["REQUEST_METHOD"]
-    === "POST" &&
-
-    isset(
-        $_POST["verify_code"]
-    )
+        === "POST" &&
+    isset($_POST["verify_code"])
 ) {
 
     $enteredCode =
         trim(
             $_POST[
                 "verification_code"
-            ]
-            ?? ""
+            ] ?? ""
         );
 
 
     if (
-        time() > $expires
+        time() >
+        (int) $_SESSION[
+            "temporary_auth_expires"
+        ]
     ) {
 
         $error =
             "Your verification code has expired. Generate a new code below.";
-
 
     } elseif (
         !preg_match(
@@ -232,10 +210,11 @@ if (
         $error =
             "Please enter the 6-digit verification code.";
 
-
     } elseif (
         !hash_equals(
-            $temporaryCode,
+            (string) $_SESSION[
+                "temporary_auth_code"
+            ],
             $enteredCode
         )
     ) {
@@ -243,77 +222,64 @@ if (
         $error =
             "Incorrect verification code.";
 
-
     } else {
 
-
-        /* =================================================
-           REGISTRATION VERIFICATION
-        ================================================= */
+        /* REGISTRATION */
 
         if (
             $purpose === "registration"
         ) {
 
-            $update =
+            $stmt =
                 $conn->prepare("
                     UPDATE users
 
                     SET
                         email_verified = 1,
-                        account_status = 'active'
+                        account_status = 'active',
+                        last_login_at = NOW()
 
                     WHERE id = ?
+
+                    LIMIT 1
                 ");
 
 
-            if (!$update) {
+            if (!$stmt) {
 
                 $error =
                     "Unable to verify your account.";
 
             } else {
 
-                $update->bind_param(
+                $stmt->bind_param(
                     "i",
                     $userId
                 );
 
 
                 if (
-                    !$update->execute()
+                    $stmt->execute()
                 ) {
 
-                    $error =
-                        "Unable to verify your account.";
+                    $stmt->close();
 
-                } else {
-
-                    $update->close();
-
-
-                    /* =====================================
-                       REGISTRATION COMPLETE
-                    ====================================== */
 
                     session_regenerate_id(
                         true
                     );
 
 
-                    $_SESSION[
-                        "user_id"
-                    ] = $userId;
+                    $_SESSION["user_id"] =
+                        $userId;
 
 
-                    $_SESSION[
-                        "user_role"
-                    ] = $role;
+                    $_SESSION["user_role"] =
+                        $role;
 
 
-                    $_SESSION[
-                        "user_email"
-                    ] = $email;
+                    $_SESSION["user_email"] =
+                        $email;
 
 
                     unset(
@@ -339,8 +305,8 @@ if (
 
 
                     if (
-                        $role
-                        === "administrator"
+                        $role ===
+                        "administrator"
                     ) {
 
                         header(
@@ -356,21 +322,232 @@ if (
 
 
                     exit;
+
+                } else {
+
+                    $error =
+                        "Unable to verify your account.";
+
+
+                    $stmt->close();
                 }
             }
+        }
 
 
-        /* =================================================
-           LOGIN VERIFICATION
-        ================================================= */
+        /* REACTIVATION */
 
-        } else {
+        elseif (
+            $purpose === "reactivation"
+        ) {
+
+            $accountStmt =
+                $conn->prepare("
+                    SELECT
+
+                        email,
+                        role,
+                        account_status,
+                        email_verified
+
+                    FROM users
+
+                    WHERE id = ?
+
+                    LIMIT 1
+                ");
 
 
-            /*
-             * Before creating a logged-in session,
-             * make sure the account is still active.
-             */
+            if (!$accountStmt) {
+
+                $error =
+                    "Unable to reactivate your account.";
+
+            } else {
+
+                $accountStmt->bind_param(
+                    "i",
+                    $userId
+                );
+
+
+                $accountStmt->execute();
+
+
+                $account =
+                    $accountStmt
+                        ->get_result()
+                        ->fetch_assoc();
+
+
+                $accountStmt->close();
+
+
+                if (!$account) {
+
+                    $error =
+                        "Account could not be found.";
+
+                } elseif (
+                    (int) $account[
+                        "email_verified"
+                    ] !== 1
+                ) {
+
+                    $error =
+                        "This account is not verified.";
+
+                } elseif (
+                    $account[
+                        "account_status"
+                    ] !== "deactivated"
+                ) {
+
+                    $error =
+                        "This account cannot be reactivated from its current status.";
+
+                } else {
+
+                    $reactivateStmt =
+                        $conn->prepare("
+                            UPDATE users
+
+                            SET
+                                account_status =
+                                    'active',
+
+                                last_login_at =
+                                    NOW()
+
+                            WHERE
+                                id = ?
+
+                                AND
+                                account_status =
+                                    'deactivated'
+
+                            LIMIT 1
+                        ");
+
+
+                    if (!$reactivateStmt) {
+
+                        $error =
+                            "Unable to reactivate your account.";
+
+                    } else {
+
+                        $reactivateStmt
+                            ->bind_param(
+                                "i",
+                                $userId
+                            );
+
+
+                        if (
+                            $reactivateStmt
+                                ->execute()
+                        ) {
+
+                            $reactivateStmt
+                                ->close();
+
+
+                            session_regenerate_id(
+                                true
+                            );
+
+
+                            $_SESSION[
+                                "user_id"
+                            ] =
+                                $userId;
+
+
+                            $_SESSION[
+                                "user_role"
+                            ] =
+                                $account[
+                                    "role"
+                                ];
+
+
+                            $_SESSION[
+                                "user_email"
+                            ] =
+                                $account[
+                                    "email"
+                                ];
+
+
+                            unset(
+                                $_SESSION[
+                                    "pending_auth_user_id"
+                                ],
+                                $_SESSION[
+                                    "pending_auth_purpose"
+                                ],
+                                $_SESSION[
+                                    "pending_auth_email"
+                                ],
+                                $_SESSION[
+                                    "pending_auth_role"
+                                ],
+                                $_SESSION[
+                                    "temporary_auth_code"
+                                ],
+                                $_SESSION[
+                                    "temporary_auth_expires"
+                                ],
+                                $_SESSION[
+                                    "reactivation_user_id"
+                                ],
+                                $_SESSION[
+                                    "reactivation_email"
+                                ]
+                            );
+
+
+                            if (
+                                $account[
+                                    "role"
+                                ]
+                                ===
+                                "administrator"
+                            ) {
+
+                                header(
+                                    "Location: admin_dashboard.php"
+                                );
+
+                            } else {
+
+                                header(
+                                    "Location: student_dashboard.php"
+                                );
+                            }
+
+
+                            exit;
+
+                        } else {
+
+                            $error =
+                                "Unable to reactivate your account.";
+
+
+                            $reactivateStmt
+                                ->close();
+                        }
+                    }
+                }
+            }
+        }
+
+
+        /* LOGIN */
+
+        else {
 
             $accountStmt =
                 $conn->prepare("
@@ -396,15 +573,13 @@ if (
 
             } else {
 
-                $accountStmt
-                    ->bind_param(
-                        "i",
-                        $userId
-                    );
+                $accountStmt->bind_param(
+                    "i",
+                    $userId
+                );
 
 
-                $accountStmt
-                    ->execute();
+                $accountStmt->execute();
 
 
                 $account =
@@ -413,8 +588,7 @@ if (
                         ->fetch_assoc();
 
 
-                $accountStmt
-                    ->close();
+                $accountStmt->close();
 
 
                 if (!$account) {
@@ -422,16 +596,14 @@ if (
                     $error =
                         "Account could not be found.";
 
-
                 } elseif (
-                    !(bool) $account[
+                    (int) $account[
                         "email_verified"
-                    ]
+                    ] !== 1
                 ) {
 
                     $error =
                         "This account is not verified.";
-
 
                 } elseif (
                     $account[
@@ -440,15 +612,36 @@ if (
                 ) {
 
                     $error =
-                        "This account is not currently active.";
-
+                        "This account is no longer active.";
 
                 } else {
 
+                    $loginStmt =
+                        $conn->prepare("
+                            UPDATE users
 
-                    /* =====================================
-                       LOGIN COMPLETE
-                    ====================================== */
+                            SET last_login_at = NOW()
+
+                            WHERE id = ?
+
+                            LIMIT 1
+                        ");
+
+
+                    if ($loginStmt) {
+
+                        $loginStmt->bind_param(
+                            "i",
+                            $userId
+                        );
+
+
+                        $loginStmt->execute();
+
+
+                        $loginStmt->close();
+                    }
+
 
                     session_regenerate_id(
                         true
@@ -457,7 +650,8 @@ if (
 
                     $_SESSION[
                         "user_id"
-                    ] = $userId;
+                    ] =
+                        $userId;
 
 
                     $_SESSION[
@@ -523,17 +717,12 @@ if (
 }
 
 
-/* =========================================================
-   GENERATE NEW CODE
-========================================================= */
+/* NEW CODE */
 
 if (
     $_SERVER["REQUEST_METHOD"]
-    === "POST" &&
-
-    isset(
-        $_POST["resend_code"]
-    )
+        === "POST" &&
+    isset($_POST["resend_code"])
 ) {
 
     $newCode =
@@ -550,12 +739,14 @@ if (
 
     $_SESSION[
         "temporary_auth_code"
-    ] = $newCode;
+    ] =
+        $newCode;
 
 
     $_SESSION[
         "temporary_auth_expires"
-    ] = time() + 600;
+    ] =
+        time() + 600;
 
 
     $temporaryCode =
@@ -622,6 +813,7 @@ if (
         rel="stylesheet"
     >
 
+
 </head>
 
 
@@ -634,9 +826,7 @@ if (
     <div class="verification-card">
 
 
-        <!-- =========================================
-             BRAND
-        ========================================== -->
+        <!-- BRAND -->
 
         <div class="verification-brand">
 
@@ -674,9 +864,7 @@ if (
         </div>
 
 
-        <!-- =========================================
-             CONTENT
-        ========================================== -->
+        <!-- VERIFICATION -->
 
         <div class="verification-content">
 
@@ -704,11 +892,7 @@ if (
             </h1>
 
 
-            <p
-                class="
-                    verification-description
-                "
-            >
+            <p class="verification-description">
 
                 <?= htmlspecialchars(
                     $pageDescription
@@ -717,12 +901,7 @@ if (
             </p>
 
 
-            <!-- =====================================
-                 TEMPORARY CODE
-
-                 This matches the registration
-                 behavior you currently use.
-            ====================================== -->
+            <!-- TEMPORARY CODE -->
 
             <div class="code-display">
 
@@ -735,7 +914,9 @@ if (
                 <strong>
 
                     <?= htmlspecialchars(
-                        $temporaryCode
+                        $_SESSION[
+                            "temporary_auth_code"
+                        ]
                     ) ?>
 
                 </strong>
@@ -750,21 +931,12 @@ if (
             </div>
 
 
-            <!-- =====================================
-                 ERROR
-            ====================================== -->
-
             <?php if (
                 $error !== ""
             ): ?>
 
 
-                <div
-                    class="
-                        alert
-                        error
-                    "
-                >
+                <div class="alert error">
 
                     <?= htmlspecialchars(
                         $error
@@ -776,21 +948,12 @@ if (
             <?php endif; ?>
 
 
-            <!-- =====================================
-                 SUCCESS
-            ====================================== -->
-
             <?php if (
                 $success !== ""
             ): ?>
 
 
-                <div
-                    class="
-                        alert
-                        success
-                    "
-                >
+                <div class="alert success">
 
                     <?= htmlspecialchars(
                         $success
@@ -802,9 +965,7 @@ if (
             <?php endif; ?>
 
 
-            <!-- =====================================
-                 VERIFY FORM
-            ====================================== -->
+            <!-- OTP -->
 
             <form
                 method="POST"
@@ -816,9 +977,7 @@ if (
 
 
                     <label
-                        for="
-                            verification_code
-                        "
+                        for="verification_code"
                     >
                         Enter Verification Code
                     </label>
@@ -847,7 +1006,7 @@ if (
                 >
 
                     <?= htmlspecialchars(
-                        $verifyButtonText
+                        $buttonText
                     ) ?>
 
                     <span>
@@ -860,9 +1019,7 @@ if (
             </form>
 
 
-            <!-- =====================================
-                 NEW CODE
-            ====================================== -->
+            <!-- RESEND -->
 
             <form
                 method="POST"
@@ -888,57 +1045,12 @@ if (
                 Account:
 
                 <strong>
-
                     <?= htmlspecialchars(
                         $email
                     ) ?>
-
                 </strong>
 
             </p>
-
-
-            <?php if (
-                $purpose === "login"
-            ): ?>
-
-
-                <p
-                    class="
-                        verification-email
-                    "
-                    style="
-                        margin-top: 12px;
-                    "
-                >
-
-                    <a href="login.php">
-                        ← Cancel login
-                    </a>
-
-                </p>
-
-
-            <?php else: ?>
-
-
-                <p
-                    class="
-                        verification-email
-                    "
-                    style="
-                        margin-top: 12px;
-                    "
-                >
-
-                    <a href="register.php">
-                        ← Back to registration
-                    </a>
-
-                </p>
-
-
-            <?php endif; ?>
 
 
         </div>
