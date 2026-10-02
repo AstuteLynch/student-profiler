@@ -3,1332 +3,360 @@
 session_start();
 
 require_once "db.php";
-require_once "auth_functions.php";
-
+require_once "admin_student_functions.php";
 
 /* ADMIN */
 
-requireAdmin($conn);
+$admin =
+    requireAdministrator($conn);
+
+$adminUserId =
+    (int) $admin["id"];
+
+$csrfToken =
+    getAdminCsrfToken();
+
+purgeExpiredStudentAccounts($conn);
 
 
-$administratorId =
-    (int) $_SESSION["user_id"];
+/* MESSAGE */
+
+$error = "";
+$success = "";
+
+if (isset($_GET["removed"])) {
+    $success =
+        "Student account moved to Trash. It will be permanently deleted after 30 days unless restored.";
+}
 
 
-/* LOGOUT */
+/* REMOVE */
 
-if (isset($_GET["logout"])) {
+if (
+    $_SERVER["REQUEST_METHOD"] === "POST" &&
+    ($_POST["action"] ?? "") === "remove_student"
+) {
+    if (
+        !verifyAdminCsrfToken(
+            $_POST["csrf_token"] ?? ""
+        )
+    ) {
+        $error =
+            "Your session expired. Please refresh the page.";
 
-    logoutUser(
-        "login.php"
-    );
+    } else {
+        $studentUserId =
+            (int) ($_POST["student_user_id"] ?? 0);
+
+        if (
+            moveStudentToTrash(
+                $conn,
+                $studentUserId,
+                $adminUserId
+            )
+        ) {
+            header(
+                "Location: student_records.php?removed=1"
+            );
+            exit;
+        }
+
+        $error =
+            "Unable to move the student account to Trash.";
+    }
 }
 
 
 /* FILTERS */
 
 $search =
-    trim(
-        $_GET["search"]
-        ?? ""
-    );
-
-
-$program =
-    trim(
-        $_GET["program"]
-        ?? ""
-    );
-
+    trim($_GET["search"] ?? "");
 
 $status =
-    trim(
-        $_GET["status"]
-        ?? ""
-    );
+    trim($_GET["status"] ?? "");
+
+$program =
+    trim($_GET["program"] ?? "");
 
 
-$yearLevel =
-    trim(
-        $_GET["year_level"]
-        ?? ""
-    );
+/* PROGRAMS */
 
+$programs = [];
 
-$allowedStatuses = [
-
-    "pending",
-    "active",
-    "archived",
-    "deactivated",
-    "suspended"
-];
-
-
-if (
-    $status !== "" &&
-    !in_array(
-        $status,
-        $allowedStatuses,
-        true
-    )
-) {
-
-    $status = "";
-}
-
-
-/* PAGINATION */
-
-$perPage = 15;
-
-
-$page =
-    max(
-        1,
-        (int) (
-            $_GET["page"]
-            ?? 1
-        )
-    );
-
-
-$offset =
-    ($page - 1) *
-    $perPage;
-
-
-/* SEARCH VALUES */
-
-$searchLike =
-    "%" .
-    $search .
-    "%";
-
-
-/* TOTAL RECORDS */
-
-$countStmt =
-    $conn->prepare("
-        SELECT
-            COUNT(*) AS total
-
-        FROM users u
-
-        LEFT JOIN student_profiles sp
-            ON sp.user_id = u.id
-
+$programResult =
+    $conn->query("
+        SELECT DISTINCT program
+        FROM student_profiles
         WHERE
-            u.role = 'student'
-
-            AND
-            (
-                ? = ''
-
-                OR CONCAT_WS(
-                    ' ',
-                    sp.first_name,
-                    sp.middle_name,
-                    sp.last_name,
-                    sp.suffix
-                ) LIKE ?
-
-                OR sp.student_id LIKE ?
-
-                OR u.email LIKE ?
-            )
-
-            AND
-            (
-                ? = ''
-                OR sp.program = ?
-            )
-
-            AND
-            (
-                ? = ''
-                OR u.account_status = ?
-            )
-
-            AND
-            (
-                ? = ''
-                OR sp.year_level = ?
-            )
+            program IS NOT NULL
+            AND TRIM(program) <> ''
+        ORDER BY program ASC
     ");
 
-
-if (!$countStmt) {
-
-    die(
-        "Unable to load student records."
-    );
-}
-
-
-$countStmt->bind_param(
-    "ssssssssss",
-
-    $search,
-    $searchLike,
-    $searchLike,
-    $searchLike,
-
-    $program,
-    $program,
-
-    $status,
-    $status,
-
-    $yearLevel,
-    $yearLevel
-);
-
-
-$countStmt->execute();
-
-
-$countResult =
-    $countStmt
-        ->get_result()
-        ->fetch_assoc();
-
-
-$totalRecords =
-    (int) (
-        $countResult["total"]
-        ?? 0
-    );
-
-
-$countStmt->close();
-
-
-$totalPages =
-    max(
-        1,
-        (int) ceil(
-            $totalRecords /
-            $perPage
-        )
-    );
-
-
-if (
-    $page > $totalPages
-) {
-
-    $page =
-        $totalPages;
-
-
-    $offset =
-        ($page - 1) *
-        $perPage;
+if ($programResult) {
+    while (
+        $row =
+            $programResult->fetch_assoc()
+    ) {
+        $programs[] =
+            $row["program"];
+    }
 }
 
 
 /* STUDENTS */
 
-$students = [];
+$sql = "
+    SELECT
+        u.id AS user_id,
+        u.email,
+        u.account_status,
+        u.email_verified,
+        u.created_at,
 
+        sp.student_id,
+        sp.first_name,
+        sp.middle_name,
+        sp.last_name,
+        sp.program,
+        sp.year_level,
+        sp.section,
+        sp.campus,
+        sp.profile_photo
+
+    FROM users u
+
+    LEFT JOIN student_profiles sp
+        ON sp.user_id = u.id
+
+    LEFT JOIN deleted_student_accounts d
+        ON d.user_id = u.id
+
+    WHERE
+        u.role = 'student'
+        AND d.user_id IS NULL
+";
+
+$params = [];
+$types = "";
+
+if ($search !== "") {
+    $sql .= "
+        AND (
+            sp.first_name LIKE ?
+            OR sp.middle_name LIKE ?
+            OR sp.last_name LIKE ?
+            OR sp.student_id LIKE ?
+            OR u.email LIKE ?
+            OR CONCAT_WS(
+                ' ',
+                sp.first_name,
+                sp.middle_name,
+                sp.last_name
+            ) LIKE ?
+        )
+    ";
+
+    $searchLike =
+        "%" . $search . "%";
+
+    for ($i = 0; $i < 6; $i++) {
+        $params[] =
+            $searchLike;
+        $types .= "s";
+    }
+}
+
+if ($status !== "") {
+    $allowedStatuses = [
+        "pending",
+        "active",
+        "archived",
+        "deactivated",
+        "suspended"
+    ];
+
+    if (
+        in_array(
+            $status,
+            $allowedStatuses,
+            true
+        )
+    ) {
+        $sql .= "
+            AND u.account_status = ?
+        ";
+
+        $params[] = $status;
+        $types .= "s";
+    }
+}
+
+if ($program !== "") {
+    $sql .= "
+        AND sp.program = ?
+    ";
+
+    $params[] = $program;
+    $types .= "s";
+}
+
+$sql .= "
+    ORDER BY
+        sp.last_name ASC,
+        sp.first_name ASC,
+        u.id DESC
+";
 
 $stmt =
-    $conn->prepare("
-        SELECT
-
-            u.id AS user_id,
-            u.email,
-            u.account_status,
-            u.email_verified,
-            u.last_login_at,
-            u.created_at,
-
-            sp.student_id,
-            sp.first_name,
-            sp.middle_name,
-            sp.last_name,
-            sp.suffix,
-            sp.program,
-            sp.year_level,
-            sp.section,
-            sp.college,
-            sp.campus,
-            sp.profile_photo,
-            sp.profile_completion
-
-        FROM users u
-
-        LEFT JOIN student_profiles sp
-            ON sp.user_id = u.id
-
-        WHERE
-            u.role = 'student'
-
-            AND
-            (
-                ? = ''
-
-                OR CONCAT_WS(
-                    ' ',
-                    sp.first_name,
-                    sp.middle_name,
-                    sp.last_name,
-                    sp.suffix
-                ) LIKE ?
-
-                OR sp.student_id LIKE ?
-
-                OR u.email LIKE ?
-            )
-
-            AND
-            (
-                ? = ''
-                OR sp.program = ?
-            )
-
-            AND
-            (
-                ? = ''
-                OR u.account_status = ?
-            )
-
-            AND
-            (
-                ? = ''
-                OR sp.year_level = ?
-            )
-
-        ORDER BY
-
-            CASE u.account_status
-
-                WHEN 'active'
-                    THEN 1
-
-                WHEN 'pending'
-                    THEN 2
-
-                WHEN 'suspended'
-                    THEN 3
-
-                WHEN 'deactivated'
-                    THEN 4
-
-                WHEN 'archived'
-                    THEN 5
-
-                ELSE 6
-
-            END,
-
-            sp.last_name ASC,
-            sp.first_name ASC,
-            u.id DESC
-
-        LIMIT ?
-        OFFSET ?
-    ");
-
+    $conn->prepare($sql);
 
 if (!$stmt) {
-
     die(
         "Unable to load student records."
     );
 }
 
-
-$stmt->bind_param(
-    "ssssssssssii",
-
-    $search,
-    $searchLike,
-    $searchLike,
-    $searchLike,
-
-    $program,
-    $program,
-
-    $status,
-    $status,
-
-    $yearLevel,
-    $yearLevel,
-
-    $perPage,
-    $offset
-);
-
+if (!empty($params)) {
+    $stmt->bind_param(
+        $types,
+        ...$params
+    );
+}
 
 $stmt->execute();
 
-
-$result =
-    $stmt->get_result();
-
-
-while (
-    $row =
-        $result->fetch_assoc()
-) {
-
-    $students[] =
-        $row;
-}
-
-
-$stmt->close();
-
-
-/* PROGRAM FILTER */
-
-$programs = [];
-
-
-$programStmt =
-    $conn->prepare("
-        SELECT DISTINCT
-            sp.program
-
-        FROM users u
-
-        INNER JOIN student_profiles sp
-            ON sp.user_id = u.id
-
-        WHERE
-            u.role = 'student'
-            AND sp.program IS NOT NULL
-            AND TRIM(sp.program) <> ''
-
-        ORDER BY sp.program ASC
-    ");
-
-
-if ($programStmt) {
-
-    $programStmt->execute();
-
-
-    $programResult =
-        $programStmt
-            ->get_result();
-
-
-    while (
-        $row =
-            $programResult
-                ->fetch_assoc()
-    ) {
-
-        $programs[] =
-            $row["program"];
-    }
-
-
-    $programStmt->close();
-}
-
-
-/* YEAR FILTER */
-
-$yearLevels = [];
-
-
-$yearStmt =
-    $conn->prepare("
-        SELECT DISTINCT
-            sp.year_level
-
-        FROM users u
-
-        INNER JOIN student_profiles sp
-            ON sp.user_id = u.id
-
-        WHERE
-            u.role = 'student'
-            AND sp.year_level IS NOT NULL
-            AND TRIM(sp.year_level) <> ''
-
-        ORDER BY sp.year_level ASC
-    ");
-
-
-if ($yearStmt) {
-
-    $yearStmt->execute();
-
-
-    $yearResult =
-        $yearStmt
-            ->get_result();
-
-
-    while (
-        $row =
-            $yearResult
-                ->fetch_assoc()
-    ) {
-
-        $yearLevels[] =
-            $row["year_level"];
-    }
-
-
-    $yearStmt->close();
-}
-
-
-/* SUMMARY */
-
-$summary = [
-
-    "total" => 0,
-    "active" => 0,
-    "pending" => 0,
-    "suspended" => 0,
-    "deactivated" => 0,
-    "archived" => 0
-];
-
-
-$summaryStmt =
-    $conn->prepare("
-        SELECT
-
-            COUNT(*) AS total,
-
-            SUM(
-                CASE
-                    WHEN account_status = 'active'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS active,
-
-            SUM(
-                CASE
-                    WHEN account_status = 'pending'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS pending,
-
-            SUM(
-                CASE
-                    WHEN account_status = 'suspended'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS suspended,
-
-            SUM(
-                CASE
-                    WHEN account_status = 'deactivated'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS deactivated,
-
-            SUM(
-                CASE
-                    WHEN account_status = 'archived'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS archived
-
-        FROM users
-
-        WHERE role = 'student'
-    ");
-
-
-if ($summaryStmt) {
-
-    $summaryStmt->execute();
-
-
-    $summaryRow =
-        $summaryStmt
-            ->get_result()
-            ->fetch_assoc();
-
-
-    $summaryStmt->close();
-
-
-    if ($summaryRow) {
-
-        foreach (
-            $summary
-            as $key => $value
-        ) {
-
-            $summary[$key] =
-                (int) (
-                    $summaryRow[$key]
-                    ?? 0
-                );
-        }
-    }
-}
-
-
-/* HELPERS */
-
-function displayValue(
-    ?string $value,
-    string $fallback = "Not provided"
-): string {
-
-    $value =
-        trim(
-            (string) $value
-        );
-
-
-    return
-        $value !== ""
-            ? $value
-            : $fallback;
-}
-
-
-function studentFullName(
-    array $student
-): string {
-
-    $parts = [];
-
-
-    foreach (
-        [
-            $student["first_name"]
-                ?? "",
-
-            $student["middle_name"]
-                ?? "",
-
-            $student["last_name"]
-                ?? "",
-
-            $student["suffix"]
-                ?? ""
-        ]
-        as $part
-    ) {
-
-        $part =
-            trim(
-                (string) $part
-            );
-
-
-        if ($part !== "") {
-
-            $parts[] =
-                $part;
-        }
-    }
-
-
-    $name =
-        implode(
-            " ",
-            $parts
-        );
-
-
-    return
-        $name !== ""
-            ? $name
-            : "Student";
-}
-
-
-function statusLabel(
-    string $status
-): string {
-
-    return match ($status) {
-
-        "active" =>
-            "Active",
-
-        "pending" =>
-            "Pending",
-
-        "archived" =>
-            "Archived",
-
-        "deactivated" =>
-            "Deactivated",
-
-        "suspended" =>
-            "Suspended",
-
-        default =>
-            ucfirst($status)
-    };
-}
-
-
-function buildRecordsUrl(
-    int $page,
-    string $search,
-    string $program,
-    string $status,
-    string $yearLevel
-): string {
-
-    $query = [
-
-        "page" =>
-            $page
-    ];
-
-
-    if ($search !== "") {
-
-        $query["search"] =
-            $search;
-    }
-
-
-    if ($program !== "") {
-
-        $query["program"] =
-            $program;
-    }
-
-
-    if ($status !== "") {
-
-        $query["status"] =
-            $status;
-    }
-
-
-    if ($yearLevel !== "") {
-
-        $query["year_level"] =
-            $yearLevel;
-    }
-
-
-    return
-        "student_records.php?" .
-        http_build_query(
-            $query
-        );
-}
+$students =
+    $stmt
+        ->get_result();
 
 ?>
 
 <!DOCTYPE html>
-
 <html lang="en">
-
 
 <head>
 
     <meta charset="UTF-8">
-
 
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
-
     <title>
         Student Records | CVSWHO
     </title>
-
 
     <link
         rel="stylesheet"
         href="student_records.css"
     >
 
-
     <style>
+        .message {
+            margin-bottom: 18px;
+            padding: 12px 15px;
+            border-radius: 9px;
+            font-size: 10px;
+        }
 
-        .summary-grid {
+        .message.success {
+            color: #18794e;
+            background: #eaf7ef;
+            border: 1px solid #cee8d9;
+        }
 
-            display: grid;
+        .message.error {
+            color: #a23939;
+            background: #fff0f0;
+            border: 1px solid #efcccc;
+        }
 
-            grid-template-columns:
-                repeat(
-                    5,
-                    minmax(
-                        0,
-                        1fr
-                    )
-                );
-
+        .header-actions {
+            display: flex;
             gap: 10px;
-
-            margin-bottom: 20px;
+            align-items: center;
         }
 
-
-        .summary-card {
-
-            padding: 16px;
-
-            background: white;
-
-            border:
-                1px solid #e1e9e4;
-
-            border-radius: 10px;
+        .trash-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 15px;
+            color: #7a3131;
+            background: #fff4f4;
+            border: 1px solid #efcccc;
+            border-radius: 8px;
+            font-size: 9px;
+            font-weight: 700;
+            text-decoration: none;
         }
 
+        .trash-button:hover {
+            background: #ffeaea;
+        }
 
-        .summary-card span {
+        .action-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
 
-            display: block;
-
-            color: #68766f;
-
+        .remove-button {
+            padding: 7px 10px;
+            color: #a23939;
+            background: #fff;
+            border: 1px solid #e8bcbc;
+            border-radius: 7px;
             font-size: 8px;
-
             font-weight: 700;
-
-            letter-spacing: .5px;
-
-            text-transform: uppercase;
-        }
-
-
-        .summary-card strong {
-
-            display: block;
-
-            margin-top: 6px;
-
-            color: #006b3f;
-
-            font-size: 21px;
-        }
-
-
-        .filter-form {
-
-            width: 100%;
-
-            display: grid;
-
-            grid-template-columns:
-                minmax(
-                    220px,
-                    2fr
-                )
-                repeat(
-                    3,
-                    minmax(
-                        135px,
-                        1fr
-                    )
-                )
-                auto
-                auto;
-
-            gap: 9px;
-        }
-
-
-        .filter-form input,
-        .filter-form select {
-
-            width: 100%;
-
-            min-height: 39px;
-
-            padding:
-                0 11px;
-
-            color: #25342c;
-
-            background: white;
-
-            border:
-                1px solid #dce6e0;
-
-            border-radius: 8px;
-
-            outline: none;
-
-            font: inherit;
-
-            font-size: 9px;
-        }
-
-
-        .filter-form input:focus,
-        .filter-form select:focus {
-
-            border-color: #006b3f;
-
-            box-shadow:
-                0 0 0 3px
-                rgba(
-                    0,
-                    107,
-                    63,
-                    .06
-                );
-        }
-
-
-        .filter-button {
-
-            min-height: 39px;
-
-            padding:
-                0 15px;
-
-            color: white;
-
-            background: #006b3f;
-
-            border: none;
-
-            border-radius: 8px;
-
-            font: inherit;
-
-            font-size: 9px;
-
-            font-weight: 700;
-
             cursor: pointer;
         }
 
-
-        .filter-button:hover {
-
-            background: #004d2a;
-        }
-
-
-        .clear-button {
-
-            min-height: 39px;
-
-            display: inline-flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            padding:
-                0 15px;
-
-            color: #526159;
-
-            background: white;
-
-            border:
-                1px solid #dce6e0;
-
-            border-radius: 8px;
-
-            font-size: 9px;
-
-            font-weight: 700;
-
-            text-decoration: none;
-        }
-
-
-        .table-heading {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content:
-                space-between;
-
-            gap: 15px;
-
-            margin:
-                25px 0 13px;
-        }
-
-
-        .table-heading h2 {
-
-            color: #003d24;
-
-            font-size: 16px;
-        }
-
-
-        .result-count {
-
-            color: #68766f;
-
-            font-size: 9px;
-        }
-
-
-        .student-cell {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 10px;
-
-            min-width: 190px;
-        }
-
-
-        .student-avatar {
-
-            width: 34px;
-            height: 34px;
-
-            display: grid;
-
-            place-items: center;
-
-            flex-shrink: 0;
-
-            overflow: hidden;
-
-            color: white;
-
-            background: #006b3f;
-
-            border-radius: 50%;
-
-            font-size: 10px;
-
-            font-weight: 800;
-        }
-
-
-        .student-avatar img {
-
-            width: 100%;
-            height: 100%;
-
-            display: block;
-
-            object-fit: cover;
-        }
-
-
-        .student-cell strong {
-
-            display: block;
-
-            color: #1f2e26;
-
-            font-size: 9px;
-        }
-
-
-        .student-email {
-
-            display: block;
-
-            margin-top: 3px;
-
-            color: #7c8982;
-
-            font-size: 8px;
-        }
-
-
-        .status {
-
-            display: inline-flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            padding:
-                5px 8px;
-
-            border-radius: 30px;
-
-            font-size: 7px;
-
-            font-weight: 800;
-
-            text-transform: uppercase;
-        }
-
-
-        .status.active {
-
-            color: #18794e;
-
-            background: #eaf7ef;
-        }
-
-
-        .status.pending {
-
-            color: #8a6915;
-
-            background: #fff8df;
-        }
-
-
-        .status.suspended {
-
-            color: #a23939;
-
+        .remove-button:hover {
             background: #fff0f0;
         }
 
-
-        .status.deactivated {
-
-            color: #626d67;
-
-            background: #edf0ee;
-        }
-
-
-        .status.archived {
-
-            color: #5f607f;
-
-            background: #f0f0f8;
-        }
-
-
-        .verified {
-
-            display: block;
-
-            margin-top: 4px;
-
-            color: #18794e;
-
-            font-size: 7px;
-        }
-
-
-        .not-verified {
-
-            color: #a23939;
-        }
-
-
-        .view-button {
-
-            white-space: nowrap;
-        }
-
-
-        .empty-state {
-
-            padding:
-                40px 20px;
-
+        .empty-row {
+            padding: 35px;
+            color: #68766f;
             text-align: center;
         }
-
-
-        .empty-state h3 {
-
-            color: #003d24;
-
-            font-size: 14px;
-        }
-
-
-        .empty-state p {
-
-            margin-top: 6px;
-
-            color: #68766f;
-
-            font-size: 9px;
-
-            line-height: 1.7;
-        }
-
-
-        .pagination {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            flex-wrap: wrap;
-
-            gap: 6px;
-
-            margin-top: 20px;
-        }
-
-
-        .pagination a,
-        .pagination span {
-
-            min-width: 34px;
-            height: 34px;
-
-            display: inline-flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            padding:
-                0 9px;
-
-            color: #526159;
-
-            background: white;
-
-            border:
-                1px solid #dce6e0;
-
-            border-radius: 7px;
-
-            font-size: 8px;
-
-            font-weight: 700;
-
-            text-decoration: none;
-        }
-
-
-        .pagination .active {
-
-            color: white;
-
-            background: #006b3f;
-
-            border-color: #006b3f;
-        }
-
-
-        .pagination .disabled {
-
-            opacity: .45;
-        }
-
-
-        @media (
-            max-width: 1000px
-        ) {
-
-            .summary-grid {
-
-                grid-template-columns:
-                    repeat(
-                        2,
-                        minmax(
-                            0,
-                            1fr
-                        )
-                    );
-            }
-
-
-            .filter-form {
-
-                grid-template-columns:
-                    repeat(
-                        2,
-                        minmax(
-                            0,
-                            1fr
-                        )
-                    );
-            }
-
-        }
-
-
-        @media (
-            max-width: 600px
-        ) {
-
-            .summary-grid,
-            .filter-form {
-
-                grid-template-columns:
-                    1fr;
-            }
-
-
-            .table-heading {
-
-                align-items:
-                    flex-start;
-
-                flex-direction:
-                    column;
-            }
-
-        }
-
     </style>
-
 
 </head>
 
-
 <body>
-
-
-<!-- NAVIGATION -->
 
 <header class="navbar">
 
-
     <div class="nav-container">
-
 
         <a
             href="admin_dashboard.php"
             class="brand"
         >
 
-
             <div class="brand-mark">
                 C
             </div>
 
-
             <div class="brand-text">
-
 
                 <span class="brand-name">
                     CVSWHO
                 </span>
 
-
                 <span class="brand-subtitle">
                     Administrator Portal
                 </span>
 
-
             </div>
-
 
         </a>
 
-
         <nav class="desktop-nav">
-
 
             <a
                 href="admin_dashboard.php"
@@ -1337,7 +365,6 @@ function buildRecordsUrl(
                 Dashboard
             </a>
 
-
             <a
                 href="student_records.php"
                 class="nav-link active"
@@ -1345,6 +372,12 @@ function buildRecordsUrl(
                 Student Records
             </a>
 
+            <a
+                href="admin_trash.php"
+                class="nav-link"
+            >
+                Trash
+            </a>
 
             <a
                 href="admin_settings.php"
@@ -1353,189 +386,109 @@ function buildRecordsUrl(
                 Settings
             </a>
 
-
         </nav>
 
-
         <a
-            href="student_records.php?logout=1"
+            href="logout.php"
             class="logout-button"
         >
             Log out
         </a>
 
-
     </div>
-
 
 </header>
 
 
-<!-- STUDENT RECORDS -->
-
 <main class="page">
-
-
-    <!-- HEADER -->
 
     <section class="page-header">
 
-
         <div>
-
 
             <span class="eyebrow">
                 ADMINISTRATION
             </span>
 
-
             <h1>
-                Student Records
+                Manage Student Records
             </h1>
 
-
             <p>
-                Search and review registered
-                student accounts and profiles.
+                Search and manage registered student accounts.
             </p>
 
-
         </div>
 
+        <div class="header-actions">
+
+            <a
+                href="admin_trash.php"
+                class="trash-button"
+            >
+                Trash
+            </a>
+
+        </div>
 
     </section>
 
 
-    <!-- SUMMARY -->
+    <?php if ($success !== ""): ?>
 
-    <section class="summary-grid">
+        <div class="message success">
 
-
-        <div class="summary-card">
-
-
-            <span>
-                Total Students
-            </span>
-
-
-            <strong>
-                <?= $summary["total"] ?>
-            </strong>
-
+            <?= htmlspecialchars(
+                $success
+            ) ?>
 
         </div>
 
-
-        <div class="summary-card">
-
-
-            <span>
-                Active
-            </span>
+    <?php endif; ?>
 
 
-            <strong>
-                <?= $summary["active"] ?>
-            </strong>
+    <?php if ($error !== ""): ?>
 
+        <div class="message error">
+
+            <?= htmlspecialchars(
+                $error
+            ) ?>
 
         </div>
 
+    <?php endif; ?>
 
-        <div class="summary-card">
-
-
-            <span>
-                Pending
-            </span>
-
-
-            <strong>
-                <?= $summary["pending"] ?>
-            </strong>
-
-
-        </div>
-
-
-        <div class="summary-card">
-
-
-            <span>
-                Suspended
-            </span>
-
-
-            <strong>
-                <?= $summary["suspended"] ?>
-            </strong>
-
-
-        </div>
-
-
-        <div class="summary-card">
-
-
-            <span>
-                Inactive
-            </span>
-
-
-            <strong>
-
-                <?= $summary["deactivated"] +
-                    $summary["archived"]
-                ?>
-
-            </strong>
-
-
-        </div>
-
-
-    </section>
-
-
-    <!-- RECORDS -->
 
     <section class="records-card">
-
-
-        <!-- FILTERS -->
 
         <form
             method="GET"
             action="student_records.php"
-            class="filter-form"
+            class="filter-bar"
         >
 
+            <div class="search-box">
 
-            <input
-                type="search"
-                name="search"
-                value="<?= htmlspecialchars(
-                    $search
-                ) ?>"
-                placeholder="Search name, student ID, or email"
-                autocomplete="off"
-            >
+                <input
+                    type="search"
+                    name="search"
+                    placeholder="Search student name, ID, or email"
+                    value="<?= htmlspecialchars($search) ?>"
+                >
 
+            </div>
 
             <select name="program">
-
 
                 <option value="">
                     All Programs
                 </option>
 
-
                 <?php foreach (
                     $programs
                     as $programOption
                 ): ?>
-
 
                     <option
                         value="<?= htmlspecialchars(
@@ -1543,8 +496,7 @@ function buildRecordsUrl(
                         ) ?>"
                         <?= $program === $programOption
                             ? "selected"
-                            : ""
-                        ?>
+                            : "" ?>
                     >
 
                         <?= htmlspecialchars(
@@ -1553,115 +505,62 @@ function buildRecordsUrl(
 
                     </option>
 
-
                 <?php endforeach; ?>
 
-
             </select>
-
-
-            <select name="year_level">
-
-
-                <option value="">
-                    All Year Levels
-                </option>
-
-
-                <?php foreach (
-                    $yearLevels
-                    as $yearOption
-                ): ?>
-
-
-                    <option
-                        value="<?= htmlspecialchars(
-                            $yearOption
-                        ) ?>"
-                        <?= $yearLevel === $yearOption
-                            ? "selected"
-                            : ""
-                        ?>
-                    >
-
-                        <?= htmlspecialchars(
-                            $yearOption
-                        ) ?>
-
-                    </option>
-
-
-                <?php endforeach; ?>
-
-
-            </select>
-
 
             <select name="status">
 
-
                 <option value="">
-                    All Statuses
+                    All Status
                 </option>
-
 
                 <option
                     value="active"
                     <?= $status === "active"
                         ? "selected"
-                        : ""
-                    ?>
+                        : "" ?>
                 >
                     Active
                 </option>
-
 
                 <option
                     value="pending"
                     <?= $status === "pending"
                         ? "selected"
-                        : ""
-                    ?>
+                        : "" ?>
                 >
                     Pending
                 </option>
-
 
                 <option
                     value="suspended"
                     <?= $status === "suspended"
                         ? "selected"
-                        : ""
-                    ?>
+                        : "" ?>
                 >
                     Suspended
                 </option>
-
 
                 <option
                     value="deactivated"
                     <?= $status === "deactivated"
                         ? "selected"
-                        : ""
-                    ?>
+                        : "" ?>
                 >
                     Deactivated
                 </option>
-
 
                 <option
                     value="archived"
                     <?= $status === "archived"
                         ? "selected"
-                        : ""
-                    ?>
+                        : "" ?>
                 >
                     Archived
                 </option>
 
-
             </select>
-
 
             <button
                 type="submit"
@@ -1670,313 +569,172 @@ function buildRecordsUrl(
                 Filter
             </button>
 
-
-            <a
-                href="student_records.php"
-                class="clear-button"
-            >
-                Clear
-            </a>
-
-
         </form>
 
 
-        <!-- HEADING -->
+        <div class="table-wrapper">
 
-        <div class="table-heading">
+            <table>
 
+                <thead>
 
-            <h2>
-                Student Accounts
-            </h2>
+                    <tr>
 
+                        <th>
+                            Student
+                        </th>
 
-            <span class="result-count">
+                        <th>
+                            Student ID
+                        </th>
 
-                <?= $totalRecords ?>
+                        <th>
+                            Program
+                        </th>
 
-                <?= $totalRecords === 1
-                    ? "student"
-                    : "students"
-                ?>
+                        <th>
+                            Year
+                        </th>
 
-                found
+                        <th>
+                            Status
+                        </th>
 
-            </span>
+                        <th>
+                            Action
+                        </th>
 
+                    </tr>
 
-        </div>
+                </thead>
 
+                <tbody>
 
-        <!-- TABLE -->
+                <?php if (
+                    $students->num_rows === 0
+                ): ?>
 
-        <?php if (
-            count($students) > 0
-        ): ?>
+                    <tr>
 
+                        <td
+                            colspan="6"
+                            class="empty-row"
+                        >
+                            No student records found.
+                        </td>
 
-            <div class="table-wrapper">
+                    </tr>
 
+                <?php else: ?>
 
-                <table>
+                    <?php while (
+                        $student =
+                            $students->fetch_assoc()
+                    ): ?>
 
+                        <?php
 
-                    <thead>
+                        $nameParts = [
+                            trim(
+                                $student[
+                                    "first_name"
+                                ] ?? ""
+                            ),
+                            trim(
+                                $student[
+                                    "middle_name"
+                                ] ?? ""
+                            ),
+                            trim(
+                                $student[
+                                    "last_name"
+                                ] ?? ""
+                            )
+                        ];
 
+                        $nameParts =
+                            array_filter(
+                                $nameParts
+                            );
+
+                        $studentName =
+                            trim(
+                                implode(
+                                    " ",
+                                    $nameParts
+                                )
+                            );
+
+                        if ($studentName === "") {
+                            $studentName =
+                                $student["email"];
+                        }
+
+                        ?>
 
                         <tr>
 
-                            <th>
-                                Student
-                            </th>
+                            <td>
 
-                            <th>
-                                Student ID
-                            </th>
+                                <strong>
 
-                            <th>
-                                Program
-                            </th>
+                                    <?= htmlspecialchars(
+                                        $studentName
+                                    ) ?>
 
-                            <th>
-                                Year
-                            </th>
+                                </strong>
 
-                            <th>
-                                Section
-                            </th>
+                            </td>
 
-                            <th>
-                                Status
-                            </th>
+                            <td>
 
-                            <th>
-                                Action
-                            </th>
-
-                        </tr>
-
-
-                    </thead>
-
-
-                    <tbody>
-
-
-                        <?php foreach (
-                            $students
-                            as $student
-                        ): ?>
-
-
-                            <?php
-
-                            $studentName =
-                                studentFullName(
-                                    $student
-                                );
-
-
-                            $firstName =
-                                trim(
+                                <?= htmlspecialchars(
                                     $student[
-                                        "first_name"
-                                    ] ?? ""
-                                );
+                                        "student_id"
+                                    ] ?? "Not added"
+                                ) ?>
 
+                            </td>
 
-                            $initial =
-                                strtoupper(
-                                    substr(
-                                        $firstName !== ""
-                                            ? $firstName
-                                            : $studentName,
-                                        0,
-                                        1
-                                    )
-                                );
+                            <td>
 
-
-                            $profilePhoto =
-                                trim(
+                                <?= htmlspecialchars(
                                     $student[
-                                        "profile_photo"
-                                    ] ?? ""
-                                );
+                                        "program"
+                                    ] ?? "Not added"
+                                ) ?>
 
+                            </td>
 
-                            $studentStatus =
-                                $student[
-                                    "account_status"
-                                ] ?? "pending";
+                            <td>
 
-                            ?>
+                                <?= htmlspecialchars(
+                                    $student[
+                                        "year_level"
+                                    ] ?? "Not added"
+                                ) ?>
 
+                            </td>
 
-                            <tr>
+                            <td>
 
-
-                                <td>
-
-
-                                    <div class="student-cell">
-
-
-                                        <div class="student-avatar">
-
-
-                                            <?php if (
-                                                $profilePhoto !== ""
-                                            ): ?>
-
-
-                                                <img
-                                                    src="<?= htmlspecialchars(
-                                                        $profilePhoto
-                                                    ) ?>"
-                                                    alt=""
-                                                >
-
-
-                                            <?php else: ?>
-
-
-                                                <?= htmlspecialchars(
-                                                    $initial
-                                                ) ?>
-
-
-                                            <?php endif; ?>
-
-
-                                        </div>
-
-
-                                        <div>
-
-
-                                            <strong>
-
-                                                <?= htmlspecialchars(
-                                                    $studentName
-                                                ) ?>
-
-                                            </strong>
-
-
-                                            <span class="student-email">
-
-                                                <?= htmlspecialchars(
-                                                    $student["email"]
-                                                ) ?>
-
-                                            </span>
-
-
-                                        </div>
-
-
-                                    </div>
-
-
-                                </td>
-
-
-                                <td>
+                                <span class="status">
 
                                     <?= htmlspecialchars(
-                                        displayValue(
+                                        ucfirst(
                                             $student[
-                                                "student_id"
-                                            ] ?? ""
+                                                "account_status"
+                                            ]
                                         )
                                     ) ?>
 
-                                </td>
+                                </span>
 
+                            </td>
 
-                                <td>
+                            <td>
 
-                                    <?= htmlspecialchars(
-                                        displayValue(
-                                            $student[
-                                                "program"
-                                            ] ?? ""
-                                        )
-                                    ) ?>
-
-                                </td>
-
-
-                                <td>
-
-                                    <?= htmlspecialchars(
-                                        displayValue(
-                                            $student[
-                                                "year_level"
-                                            ] ?? ""
-                                        )
-                                    ) ?>
-
-                                </td>
-
-
-                                <td>
-
-                                    <?= htmlspecialchars(
-                                        displayValue(
-                                            $student[
-                                                "section"
-                                            ] ?? ""
-                                        )
-                                    ) ?>
-
-                                </td>
-
-
-                                <td>
-
-
-                                    <span
-                                        class="status <?= htmlspecialchars(
-                                            $studentStatus
-                                        ) ?>"
-                                    >
-
-                                        <?= htmlspecialchars(
-                                            statusLabel(
-                                                $studentStatus
-                                            )
-                                        ) ?>
-
-                                    </span>
-
-
-                                    <span
-                                        class="<?= (int) $student[
-                                            "email_verified"
-                                        ] === 1
-                                            ? "verified"
-                                            : "verified not-verified"
-                                        ?>"
-                                    >
-
-                                        <?= (int) $student[
-                                            "email_verified"
-                                        ] === 1
-                                            ? "Verified"
-                                            : "Not verified"
-                                        ?>
-
-                                    </span>
-
-
-                                </td>
-
-
-                                <td>
-
+                                <div class="action-group">
 
                                     <a
                                         href="admin_student_profile.php?id=<?= (int) $student["user_id"] ?>"
@@ -1985,216 +743,67 @@ function buildRecordsUrl(
                                         Open Profile
                                     </a>
 
+                                    <form
+                                        method="POST"
+                                        action="student_records.php"
+                                        onsubmit="return confirm('Move this student account to Trash? It can be restored for 30 days.');"
+                                    >
 
-                                </td>
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="<?= htmlspecialchars(
+                                                $csrfToken
+                                            ) ?>"
+                                        >
 
+                                        <input
+                                            type="hidden"
+                                            name="action"
+                                            value="remove_student"
+                                        >
 
-                            </tr>
+                                        <input
+                                            type="hidden"
+                                            name="student_user_id"
+                                            value="<?= (int) $student["user_id"] ?>"
+                                        >
 
+                                        <button
+                                            type="submit"
+                                            class="remove-button"
+                                        >
+                                            Remove
+                                        </button>
 
-                        <?php endforeach; ?>
+                                    </form>
 
+                                </div>
 
-                    </tbody>
+                            </td>
 
+                        </tr>
 
-                </table>
-
-
-            </div>
-
-
-        <?php else: ?>
-
-
-            <div class="empty-state">
-
-
-                <h3>
-                    No student records found
-                </h3>
-
-
-                <p>
-                    No students matched your
-                    current search and filters.
-                </p>
-
-
-                <a
-                    href="student_records.php"
-                    class="clear-button"
-                    style="margin-top: 12px;"
-                >
-                    Clear Filters
-                </a>
-
-
-            </div>
-
-
-        <?php endif; ?>
-
-
-        <!-- PAGINATION-->
-
-        <?php if (
-            $totalPages > 1
-        ): ?>
-
-
-            <nav
-                class="pagination"
-                aria-label="Student records pages"
-            >
-
-
-                <?php if (
-                    $page > 1
-                ): ?>
-
-
-                    <a
-                        href="<?= htmlspecialchars(
-                            buildRecordsUrl(
-                                $page - 1,
-                                $search,
-                                $program,
-                                $status,
-                                $yearLevel
-                            )
-                        ) ?>"
-                    >
-                        ← Previous
-                    </a>
-
-
-                <?php else: ?>
-
-
-                    <span class="disabled">
-                        ← Previous
-                    </span>
-
+                    <?php endwhile; ?>
 
                 <?php endif; ?>
 
+                </tbody>
 
-                <?php
+            </table>
 
-                $startPage =
-                    max(
-                        1,
-                        $page - 2
-                    );
-
-
-                $endPage =
-                    min(
-                        $totalPages,
-                        $page + 2
-                    );
-
-                ?>
-
-
-                <?php for (
-                    $pageNumber = $startPage;
-                    $pageNumber <= $endPage;
-                    $pageNumber++
-                ): ?>
-
-
-                    <?php if (
-                        $pageNumber === $page
-                    ): ?>
-
-
-                        <span class="active">
-
-                            <?= $pageNumber ?>
-
-                        </span>
-
-
-                    <?php else: ?>
-
-
-                        <a
-                            href="<?= htmlspecialchars(
-                                buildRecordsUrl(
-                                    $pageNumber,
-                                    $search,
-                                    $program,
-                                    $status,
-                                    $yearLevel
-                                )
-                            ) ?>"
-                        >
-
-                            <?= $pageNumber ?>
-
-                        </a>
-
-
-                    <?php endif; ?>
-
-
-                <?php endfor; ?>
-
-
-                <?php if (
-                    $page < $totalPages
-                ): ?>
-
-
-                    <a
-                        href="<?= htmlspecialchars(
-                            buildRecordsUrl(
-                                $page + 1,
-                                $search,
-                                $program,
-                                $status,
-                                $yearLevel
-                            )
-                        ) ?>"
-                    >
-                        Next →
-                    </a>
-
-
-                <?php else: ?>
-
-
-                    <span class="disabled">
-                        Next →
-                    </span>
-
-
-                <?php endif; ?>
-
-
-            </nav>
-
-
-        <?php endif; ?>
-
+        </div>
 
     </section>
-
 
 </main>
 
 
-<!-- FOOTER -->
-
 <footer class="footer">
-
 
     <p>
         CVSWHO
     </p>
-
 
     <span>
         Administrator Portal
@@ -2202,7 +811,11 @@ function buildRecordsUrl(
 
 </footer>
 
-
 </body>
-
 </html>
+
+<?php
+
+$stmt->close();
+
+?>
