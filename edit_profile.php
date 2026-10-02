@@ -14,9 +14,7 @@ $userId = (int) $_SESSION["user_id"];
 $error = "";
 
 
-/* =========================================================
-   LOGOUT
-========================================================= */
+/* LOGOUT */
 
 if (isset($_GET["logout"])) {
 
@@ -44,9 +42,7 @@ if (isset($_GET["logout"])) {
 }
 
 
-/* =========================================================
-   EDUCATION SAVE HELPER
-========================================================= */
+/* EDUCATION SAVE HELPER */
 
 function saveEducation(
     mysqli $conn,
@@ -168,9 +164,7 @@ function saveEducation(
 }
 
 
-/* =========================================================
-   GET OLD PHOTO BEFORE UPDATE
-========================================================= */
+/* GET OLD PHOTO BEFORE UPDATE */
 
 $currentPhoto = "";
 
@@ -202,9 +196,7 @@ if ($photoCheck) {
 }
 
 
-/* =========================================================
-   SAVE PROFILE
-========================================================= */
+/* SAVE PROFILE */
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
@@ -245,9 +237,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     );
 
 
-    /* =====================================================
-       VALIDATION
-    ===================================================== */
+    /* VALIDATION */
 
     if ($firstName === "" || $lastName === "") {
 
@@ -272,9 +262,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
 
-    /* =====================================================
-       PROFILE PHOTO
-    ===================================================== */
+    /* PROFILE PHOTO */
 
     $newProfilePhoto = $currentPhoto;
     $newUploadedFile = null;
@@ -405,9 +393,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
 
-    /* =====================================================
-       UPDATE DATABASE
-    ===================================================== */
+    /* UPDATE DATABASE */
 
     if ($error === "") {
 
@@ -416,9 +402,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $conn->begin_transaction();
 
 
-            /* =============================================
-               STUDENT PROFILE
-            ============================================= */
+            /* STUDENT PROFILE */
 
             $profileStmt = $conn->prepare("
                 INSERT INTO student_profiles
@@ -557,9 +541,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $profileStmt->close();
 
 
-            /* =============================================
-               FAMILY
-            ============================================= */
+            /* FAMILY */
 
             $familyStmt = $conn->prepare("
                 INSERT INTO family_information
@@ -620,9 +602,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $familyStmt->close();
 
 
-            /* =============================================
-               EDUCATION
-            ============================================= */
+            /* EDUCATION */
 
             saveEducation(
                 $conn,
@@ -649,9 +629,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $conn->commit();
 
 
-            /* =============================================
-               DELETE OLD PROFILE PHOTO
-            ============================================= */
+            /* DELETE OLD PROFILE PHOTO */
 
             if (
                 $newUploadedFile !== null &&
@@ -718,9 +696,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 }
 
 
-/* =========================================================
-   LOAD PROFILE
-========================================================= */
+/* LOAD PROFILE */
 
 $stmt = $conn->prepare("
     SELECT
@@ -799,9 +775,7 @@ if (!$student) {
 }
 
 
-/* =========================================================
-   LOAD EDUCATION
-========================================================= */
+/* LOAD EDUCATION */
 
 $education = [
     "elementary" => "",
@@ -873,9 +847,7 @@ if ($educationStmt) {
 }
 
 
-/* =========================================================
-   NORMALIZE
-========================================================= */
+/* NORMALIZE */
 
 $fields = [
     "first_name",

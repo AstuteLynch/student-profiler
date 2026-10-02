@@ -1,6 +1,4 @@
-/* ================================
-   Global Styles
-================================ */
+/* GLOBAL STYLES */
 
 :root {
     --primary-green: #006b3f;
@@ -75,9 +73,7 @@ button {
 }
 
 
-/* ================================
-   Buttons
-================================ */
+/* BUTTONS */
 
 .btn {
     display: inline-flex;
@@ -177,9 +173,7 @@ button {
 }
 
 
-/* ================================
-   Navigation
-================================ */
+/* NAVIGATION */
 
 .navbar {
     position: sticky;
@@ -342,9 +336,7 @@ button {
 }
 
 
-/* ================================
-   Hero Section
-================================ */
+/* HERO SECTION */
 
 .hero-section {
     position: relative;
@@ -519,9 +511,7 @@ button {
 }
 
 
-/* ================================
-   Benefits Visual
-================================ */
+/* BENEFITS VISUAL */
 
 .benefits-visual {
     position: relative;
@@ -720,9 +710,7 @@ button {
 }
 
 
-/* ================================
-   Section Headings
-================================ */
+/* SECTION HEADINGS */
 
 .section-heading {
     display: flex;
@@ -806,9 +794,7 @@ button {
 }
 
 
-/* ================================
-   Introduction Section
-================================ */
+/* INTRODUCTION SECTION */
 
 .introduction-section { 
     padding: 100px 0;
@@ -882,9 +868,7 @@ button {
 }
 
 
-/* ================================
-   Features Section
-================================ */
+/* FEATURES SECTION */
 
 .features-section {
     padding: 100px 0;
@@ -1015,9 +999,7 @@ button {
 }
 
 
-/* ================================
-   Portfolio Section
-================================ */
+/* PORTFOLIO SECTION */
 
 .portfolio-section {
     padding: 110px 0;
@@ -1283,9 +1265,7 @@ button {
 }
 
 
-/* ================================
-   Call To Action
-================================ */
+/* CALL TO ACTION */
 
 .cta-container {
     position: relative;
@@ -1377,9 +1357,7 @@ button {
 }
 
 
-/* ================================
-   Footer
-================================ */
+/* FOOTER */
 
 .footer {
     background: var(--white);
@@ -1463,9 +1441,7 @@ button {
 }
 
 
-/* ================================
-   Responsive Design
-================================ */
+/* RESPONSIVE DESIGN */
 
 @media (max-width: 1100px) {
 

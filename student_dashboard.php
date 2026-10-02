@@ -5,9 +5,7 @@ session_start();
 require_once "db.php";
 
 
-/* =========================================================
-   REQUIRE LOGIN
-========================================================= */
+/* REQUIRE LOGIN */
 
 if (!isset($_SESSION["user_id"])) {
 
@@ -20,9 +18,7 @@ $userId =
     (int) $_SESSION["user_id"];
 
 
-/* =========================================================
-   LOGOUT
-========================================================= */
+/* LOGOUT */
 
 if (isset($_GET["logout"])) {
 
@@ -64,9 +60,7 @@ if (isset($_GET["logout"])) {
 }
 
 
-/* =========================================================
-   STUDENT PROFILE
-========================================================= */
+/* STUDENT PROFILE */
 
 $stmt =
     $conn->prepare("
@@ -146,9 +140,7 @@ if (!$student) {
 }
 
 
-/* =========================================================
-   PROFILE VALUES
-========================================================= */
+/* PROFILE VALUES */
 
 $firstName =
     trim(
@@ -186,9 +178,7 @@ if ($studentName === "") {
 }
 
 
-/* =========================================================
-   AVATAR
-========================================================= */
+/* AVATAR */
 
 $avatarInitial =
     strtoupper(
@@ -202,9 +192,7 @@ $avatarInitial =
     );
 
 
-/* =========================================================
-   OTHER PROFILE VALUES
-========================================================= */
+/* OTHER PROFILE VALUES */
 
 $program =
     trim(
@@ -290,9 +278,7 @@ $profilePhoto =
     );
 
 
-/* =========================================================
-   PROFILE COMPLETION
-========================================================= */
+/* PROFILE COMPLETION */
 
 $completionFields = [
 
@@ -336,9 +322,7 @@ foreach (
 }
 
 
-/* =========================================================
-   ACCOMPLISHMENT COUNT
-========================================================= */
+/* ACCOMPLISHMENT COUNT */
 
 $accomplishmentCount = 0;
 
@@ -381,9 +365,7 @@ if ($accomplishmentCountStmt) {
 }
 
 
-/* =========================================================
-   HOBBIES + INTERESTS COUNT
-========================================================= */
+/* HOBBIES + INTERESTS COUNT */
 
 $hobbyCount = 0;
 
@@ -440,9 +422,7 @@ if ($hobbyStmt) {
 }
 
 
-/* =========================================================
-   ORGANIZATIONS COUNT
-========================================================= */
+/* ORGANIZATIONS COUNT */
 
 $organizationCount = 0;
 
@@ -485,9 +465,7 @@ if ($organizationStmt) {
 }
 
 
-/* =========================================================
-   PROFILE COMPLETION MODULES
-========================================================= */
+/* PROFILE COMPLETION MODULES */
 
 if (
     $accomplishmentCount > 0
@@ -519,9 +497,7 @@ if (
 $totalFields++;
 
 
-/* =========================================================
-   COMPLETION PERCENTAGE
-========================================================= */
+/* COMPLETION PERCENTAGE */
 
 if ($totalFields > 0) {
 
@@ -551,9 +527,7 @@ $profileCompletion =
     );
 
 
-/* =========================================================
-   PRIVACY
-========================================================= */
+/* PRIVACY */
 
 $privacyVisibility =
     "School Only";
@@ -629,9 +603,7 @@ if ($privacyStmt) {
 }
 
 
-/* =========================================================
-   RECENT ACCOMPLISHMENTS
-========================================================= */
+/* RECENT ACCOMPLISHMENTS */
 
 $recentAccomplishments = [];
 
@@ -690,9 +662,7 @@ if ($recentStmt) {
 }
 
 
-/* =========================================================
-   ACCOUNT STATUS
-========================================================= */
+/* ACCOUNT STATUS */
 
 $profileStatus =
     $student["account_status"]
@@ -748,9 +718,7 @@ if (
 }
 
 
-/* =========================================================
-   DISPLAY FALLBACKS
-========================================================= */
+/* DISPLAY FALLBACKS */
 
 $programDisplay =
     $program !== ""
@@ -803,9 +771,7 @@ $studentIdDisplay =
 <body>
 
 
-<!-- ================================================
-     NAVIGATION
-================================================ -->
+<!-- NAVIGATION -->
 
 <header class="navbar">
 
@@ -813,10 +779,7 @@ $studentIdDisplay =
     <div class="nav-container">
 
 
-        <!--
-            CVSWHO now returns to index.php
-            WITHOUT logging the student out.
-        -->
+        
 
         <a
             href="index.php"
@@ -889,10 +852,7 @@ $studentIdDisplay =
         </nav>
 
 
-        <!--
-            This is the ONLY thing that
-            destroys the session.
-        -->
+        
 
         <a
             href="student_dashboard.php?logout=1"
@@ -911,9 +871,7 @@ $studentIdDisplay =
 <main class="dashboard">
 
 
-    <!-- =========================================
-         WELCOME
-    ========================================== -->
+    <!-- WELCOME -->
 
     <section class="welcome-section">
 
@@ -958,9 +916,7 @@ $studentIdDisplay =
     </section>
 
 
-    <!-- =========================================
-         PROFILE COMPLETION
-    ========================================== -->
+    <!-- PROFILE COMPLETION -->
 
     <section class="completion-card">
 
@@ -1081,9 +1037,7 @@ $studentIdDisplay =
     </section>
 
 
-    <!-- =========================================
-         OVERVIEW
-    ========================================== -->
+    <!-- OVERVIEW -->
 
     <section class="overview-grid">
 
@@ -1254,9 +1208,7 @@ $studentIdDisplay =
         </div>
 
 
-        <!-- =====================================
-             VISIBILITY
-        ====================================== -->
+        <!-- VISIBILITY -->
 
         <div
             class="
@@ -1348,9 +1300,7 @@ $studentIdDisplay =
     </section>
 
 
-    <!-- =========================================
-         QUICK ACTIONS
-    ========================================== -->
+    <!-- QUICK ACTIONS -->
 
     <section class="quick-actions">
 
@@ -1470,9 +1420,7 @@ $studentIdDisplay =
     </section>
 
 
-    <!-- =========================================
-         RECENT ACCOMPLISHMENTS
-    ========================================== -->
+    <!-- RECENT ACCOMPLISHMENTS -->
 
     <section
         class="
@@ -1633,9 +1581,7 @@ $studentIdDisplay =
         <?php else: ?>
 
 
-            <!-- =====================================
-                 EMPTY ACCOMPLISHMENT STATE
-            ====================================== -->
+            <!-- EMPTY ACCOMPLISHMENT STATE -->
 
             <div
                 class="
@@ -1724,9 +1670,7 @@ $studentIdDisplay =
 </main>
 
 
-<!-- ================================================
-     FOOTER
-================================================ -->
+<!-- FOOTER -->
 
 <footer class="footer">
 

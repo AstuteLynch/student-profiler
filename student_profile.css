@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 
-/*Variables*/
+/* VARIABLES */
 
 :root {
     --primary-green: #006b3f;
@@ -25,7 +25,7 @@
 }
 
 
-/*Reset */
+/* RESET */
 
 * {
     box-sizing: border-box;
@@ -64,7 +64,7 @@ button {
 }
 
 
-/*Navbar*/
+/* NAVBAR */
 
 .navbar {
     position: sticky;
@@ -98,7 +98,7 @@ button {
 }
 
 
-/* Brand */
+/* BRAND */
 
 .brand {
     display: flex;
@@ -158,7 +158,7 @@ button {
 }
 
 
-/* Navigation */
+/* NAVIGATION */
 
 .desktop-nav {
     display: flex;
@@ -218,7 +218,7 @@ button {
 }
 
 
-/* Logout */
+/* LOGOUT */
 
 .logout-button {
     padding: 9px 16px;
@@ -244,7 +244,7 @@ button {
 }
 
 
-/*Main Profile*/
+/* MAIN PROFILE */
 
 .profile-page {
     width: min(1080px, calc(100% - 40px));
@@ -255,7 +255,7 @@ button {
 }
 
 
-/*Page Header*/
+/* PAGE HEADER */
 
 .page-header {
     display: flex;
@@ -319,7 +319,7 @@ button {
 }
 
 
-/*Buttons*/
+/* BUTTONS */
 
 .primary-button,
 .secondary-button,
@@ -390,7 +390,7 @@ button {
 }
 
 
-/*Profile Header*/
+/* PROFILE HEADER */
 
 .profile-header-card {
     display: flex;
@@ -535,7 +535,7 @@ button {
 }
 
 
-/*Information Cards*/
+/* INFORMATION CARDS */
 
 .information-card {
     padding: 28px 30px;
@@ -574,7 +574,7 @@ button {
 }
 
 
-/*Information Grid*/
+/* INFORMATION GRID */
 
 .information-grid {
     display: grid;
@@ -635,7 +635,7 @@ button {
 }
 
 
-/*Educational Background*/
+/* EDUCATIONAL BACKGROUND */
 
 .education-list {
     display: flex;
@@ -710,7 +710,7 @@ button {
 }
 
 
-/*Bottom Actions*/
+/* BOTTOM ACTIONS */
 
 .bottom-actions {
     display: flex;
@@ -725,7 +725,7 @@ button {
 }
 
 
-/*Footer*/
+/* FOOTER */
 
 .footer {
     padding: 25px 20px;
@@ -758,7 +758,7 @@ button {
 }
 
 
-/*Responsive*/
+/* RESPONSIVE */
 
 @media (max-width: 850px) {
 

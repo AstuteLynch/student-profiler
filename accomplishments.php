@@ -5,9 +5,7 @@ session_start();
 require_once "db.php";
 
 
-/* =========================================================
-   REQUIRE LOGIN
-========================================================= */
+/* REQUIRE LOGIN */
 
 if (!isset($_SESSION["user_id"])) {
 
@@ -20,9 +18,7 @@ $userId =
     (int) $_SESSION["user_id"];
 
 
-/* =========================================================
-   LOGOUT
-========================================================= */
+/* LOGOUT */
 
 if (isset($_GET["logout"])) {
 
@@ -55,11 +51,7 @@ if (isset($_GET["logout"])) {
 }
 
 
-/* =========================================================
-   CATEGORY LABELS
-
-   These values match the accomplishments database.
-========================================================= */
+/* CATEGORY LABELS */
 
 $categoryLabels = [
 
@@ -80,9 +72,7 @@ $categoryLabels = [
 ];
 
 
-/* =========================================================
-   LOAD CURRENT USER'S ACCOMPLISHMENTS
-========================================================= */
+/* LOAD CURRENT USER'S ACCOMPLISHMENTS */
 
 $accomplishments = [];
 
@@ -158,9 +148,7 @@ while (
 $stmt->close();
 
 
-/* =========================================================
-   SUMMARY COUNTS
-========================================================= */
+/* SUMMARY COUNTS */
 
 $totalAccomplishments =
     count($accomplishments);
@@ -209,9 +197,7 @@ $categoryCount =
     count($usedCategories);
 
 
-/* =========================================================
-   FLASH MESSAGE
-========================================================= */
+/* FLASH MESSAGE */
 
 $message = "";
 
@@ -560,9 +546,7 @@ if (isset($_GET["added"])) {
     <?php endif; ?>
 
 
-    <!-- =================================================
-         SUMMARY
-    ================================================== -->
+    <!-- SUMMARY -->
 
     <section class="summary-row">
 
@@ -633,9 +617,7 @@ if (isset($_GET["added"])) {
     </section>
 
 
-    <!-- =================================================
-         FILTER
-    ================================================== -->
+    <!-- FILTER -->
 
     <section class="filter-card">
 
@@ -691,9 +673,7 @@ if (isset($_GET["added"])) {
     </section>
 
 
-    <!-- =================================================
-         ACCOMPLISHMENT LIST
-    ================================================== -->
+    <!-- ACCOMPLISHMENT LIST -->
 
     <section class="accomplishments-section">
 
@@ -942,9 +922,7 @@ if (isset($_GET["added"])) {
         </div>
 
 
-        <!-- =================================================
-             EMPTY DATABASE STATE
-        ================================================== -->
+        <!-- EMPTY DATABASE STATE -->
 
         <?php if (
             $totalAccomplishments === 0

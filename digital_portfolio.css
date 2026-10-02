@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 
-/*Global Styles*/
+/* GLOBAL STYLES */
 
 :root {
     --primary-green: #006b3f;
@@ -57,7 +57,7 @@ button {
 }
 
 
-/* Navigation */
+/* NAVIGATION */
 
 .navbar {
     position: sticky;
@@ -216,7 +216,7 @@ button {
 }
 
 
-/* Portfolio Page*/
+/* PORTFOLIO PAGE */
 
 .portfolio-page {
     width: min(1080px, calc(100% - 40px));
@@ -227,7 +227,7 @@ button {
 }
 
 
-/* Portfolio Header*/
+/* PORTFOLIO HEADER */
 
 .portfolio-header {
     display: flex;
@@ -388,7 +388,7 @@ button {
 }
 
 
-/*Portfolio Layout*/
+/* PORTFOLIO LAYOUT */
 
 .portfolio-layout {
     display: grid;
@@ -409,9 +409,7 @@ button {
 }
 
 
-/* ================================================
-   Portfolio Cards
-================================================ */
+/* PORTFOLIO CARDS */
 
 .portfolio-card {
     padding: 28px 30px;
@@ -461,9 +459,7 @@ button {
 }
 
 
-/* ================================================
-   Education
-================================================ */
+/* EDUCATION */
 
 .education-list {
     display: flex;
@@ -576,9 +572,7 @@ button {
 }
 
 
-/* ================================================
-   Accomplishments
-================================================ */
+/* ACCOMPLISHMENTS */
 
 .accomplishment-list {
     display: flex;
@@ -667,9 +661,7 @@ button {
 }
 
 
-/* ================================================
-   Hobbies & Interests
-================================================ */
+/* HOBBIES & INTERESTS */
 
 .interest-list {
     display: flex;
@@ -693,9 +685,7 @@ button {
 }
 
 
-/* ================================================
-   Organizations
-================================================ */
+/* ORGANIZATIONS */
 
 .organization-list {
     display: flex;
@@ -770,9 +760,7 @@ button {
 }
 
 
-/* ================================================
-   Experiences
-================================================ */
+/* EXPERIENCES */
 
 .experience-list {
     display: flex;
@@ -863,9 +851,7 @@ button {
 }
 
 
-/* ================================================
-   Sidebar
-================================================ */
+/* SIDEBAR */
 
 .portfolio-sidebar {
     display: flex;
@@ -900,9 +886,7 @@ button {
 }
 
 
-/* ================================================
-   Contact
-================================================ */
+/* CONTACT */
 
 .contact-list {
     display: flex;
@@ -953,9 +937,7 @@ button {
 }
 
 
-/* ================================================
-   Academic Summary
-================================================ */
+/* ACADEMIC SUMMARY */
 
 .summary-list {
     display: flex;
@@ -992,9 +974,7 @@ button {
 }
 
 
-/* ================================================
-   Privacy Card
-================================================ */
+/* PRIVACY CARD */
 
 .privacy-card {
     display: flex;
@@ -1051,9 +1031,7 @@ button {
 }
 
 
-/* ================================================
-   Edit Profile Button
-================================================ */
+/* EDIT PROFILE BUTTON */
 
 .edit-profile-button {
     display: block;
@@ -1084,9 +1062,7 @@ button {
 }
 
 
-/* ================================================
-   Footer
-================================================ */
+/* FOOTER */
 
 .footer {
     padding: 25px 20px;
@@ -1118,9 +1094,7 @@ button {
 }
 
 
-/* ================================================
-   Responsive
-================================================ */
+/* RESPONSIVE */
 
 @media (max-width: 950px) {
 

@@ -1,7 +1,7 @@
 <?php
 
 
-/*CVSU EMAIL*/
+/* CVSU EMAIL */
 
 function isCvsuEmail(string $email): bool
 {

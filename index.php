@@ -5,9 +5,7 @@ session_start();
 require_once "db.php";
 
 
-/* =========================================================
-   CURRENT LOGGED-IN USER
-========================================================= */
+/* CURRENT LOGGED-IN USER */
 
 $isLoggedIn = false;
 
@@ -115,9 +113,7 @@ if (isset($_SESSION["user_id"])) {
 }
 
 
-/* =========================================================
-   STUDENT SEARCH
-========================================================= */
+/* STUDENT SEARCH */
 
 $studentSearch =
     trim(
@@ -132,9 +128,7 @@ $searchResults = [];
 $searchMessage = "";
 
 
-/* =========================================================
-   NORMALIZE SEARCH
-========================================================= */
+/* NORMALIZE SEARCH */
 
 function normalizeStudentSearch(
     string $value
@@ -175,9 +169,7 @@ function normalizeStudentSearch(
 }
 
 
-/* =========================================================
-   SEARCH SCORE
-========================================================= */
+/* SEARCH SCORE */
 
 function calculateStudentScore(
     array $student,
@@ -414,9 +406,7 @@ function calculateStudentScore(
 }
 
 
-/* =========================================================
-   RUN SEARCH
-========================================================= */
+/* RUN SEARCH */
 
 if ($studentSearch !== "") {
 
