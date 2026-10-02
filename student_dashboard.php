@@ -4,18 +4,40 @@ session_start();
 
 require_once "db.php";
 
+
+/* =========================================================
+   REQUIRE LOGIN
+========================================================= */
+
 if (!isset($_SESSION["user_id"])) {
+
     header("Location: login.php");
     exit;
 }
 
-$userId = (int) $_SESSION["user_id"];
+
+$userId =
+    (int) $_SESSION["user_id"];
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
 
 if (isset($_GET["logout"])) {
+
     $_SESSION = [];
 
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
+
+    if (
+        ini_get(
+            "session.use_cookies"
+        )
+    ) {
+
+        $params =
+            session_get_cookie_params();
+
 
         setcookie(
             session_name(),
@@ -28,324 +50,747 @@ if (isset($_GET["logout"])) {
         );
     }
 
+
     session_destroy();
 
-    header("Location: login.php");
+
+    /*
+     * Return to public homepage
+     * after logging out.
+     */
+
+    header("Location: index.php");
     exit;
 }
 
 
-$stmt = $conn->prepare("
-    SELECT
-        u.email,
-        u.account_status,
-        sp.first_name,
-        sp.middle_name,
-        sp.last_name,
-        sp.student_id,
-        sp.phone,
-        sp.birthdate,
-        sp.gender,
-        sp.address,
-        sp.program,
-        sp.year_level,
-        sp.section,
-        sp.college,
-        sp.campus,
-        sp.profile_photo,
-        sp.about_me
-    FROM users u
-    LEFT JOIN student_profiles sp
-        ON sp.user_id = u.id
-    WHERE u.id = ?
-    LIMIT 1
-");
+/* =========================================================
+   STUDENT PROFILE
+========================================================= */
 
-$stmt->bind_param("i", $userId);
+$stmt =
+    $conn->prepare("
+        SELECT
+
+            u.email,
+            u.account_status,
+
+            sp.first_name,
+            sp.middle_name,
+            sp.last_name,
+
+            sp.student_id,
+
+            sp.phone,
+            sp.birthdate,
+            sp.gender,
+            sp.address,
+
+            sp.program,
+            sp.year_level,
+            sp.section,
+            sp.college,
+            sp.campus,
+
+            sp.profile_photo,
+            sp.about_me
+
+        FROM users u
+
+        LEFT JOIN student_profiles sp
+            ON sp.user_id = u.id
+
+        WHERE u.id = ?
+
+        LIMIT 1
+    ");
+
+
+if (!$stmt) {
+
+    die(
+        "Dashboard database error: " .
+        htmlspecialchars(
+            $conn->error,
+            ENT_QUOTES,
+            "UTF-8"
+        )
+    );
+}
+
+
+$stmt->bind_param(
+    "i",
+    $userId
+);
+
+
 $stmt->execute();
 
-$student = $stmt->get_result()->fetch_assoc();
+
+$student =
+    $stmt
+        ->get_result()
+        ->fetch_assoc();
+
+
+$stmt->close();
+
 
 if (!$student) {
+
     session_destroy();
+
     header("Location: login.php");
     exit;
 }
 
 
-$firstName = trim($student["first_name"] ?? "");
-$middleName = trim($student["middle_name"] ?? "");
-$lastName = trim($student["last_name"] ?? "");
+/* =========================================================
+   PROFILE VALUES
+========================================================= */
 
-$studentName = trim(
-    $firstName . " " . $lastName
-);
+$firstName =
+    trim(
+        $student["first_name"]
+        ?? ""
+    );
+
+
+$middleName =
+    trim(
+        $student["middle_name"]
+        ?? ""
+    );
+
+
+$lastName =
+    trim(
+        $student["last_name"]
+        ?? ""
+    );
+
+
+$studentName =
+    trim(
+        $firstName .
+        " " .
+        $lastName
+    );
+
 
 if ($studentName === "") {
-    $studentName = "Student";
+
+    $studentName =
+        "Student";
 }
 
 
-$avatarInitial = strtoupper(
-    substr(
-        $firstName !== "" ? $firstName : $studentName,
-        0,
-        1
-    )
-);
+/* =========================================================
+   AVATAR
+========================================================= */
+
+$avatarInitial =
+    strtoupper(
+        substr(
+            $firstName !== ""
+                ? $firstName
+                : $studentName,
+            0,
+            1
+        )
+    );
 
 
-$program = trim($student["program"] ?? "");
-$yearLevel = trim($student["year_level"] ?? "");
-$section = trim($student["section"] ?? "");
-$college = trim($student["college"] ?? "");
-$studentId = trim($student["student_id"] ?? "");
-$phone = trim($student["phone"] ?? "");
-$birthdate = trim($student["birthdate"] ?? "");
-$gender = trim($student["gender"] ?? "");
-$address = trim($student["address"] ?? "");
-$campus = trim($student["campus"] ?? "");
-$aboutMe = trim($student["about_me"] ?? "");
-$profilePhoto = trim($student["profile_photo"] ?? "");
+/* =========================================================
+   OTHER PROFILE VALUES
+========================================================= */
 
+$program =
+    trim(
+        $student["program"]
+        ?? ""
+    );
+
+
+$yearLevel =
+    trim(
+        $student["year_level"]
+        ?? ""
+    );
+
+
+$section =
+    trim(
+        $student["section"]
+        ?? ""
+    );
+
+
+$college =
+    trim(
+        $student["college"]
+        ?? ""
+    );
+
+
+$studentId =
+    trim(
+        $student["student_id"]
+        ?? ""
+    );
+
+
+$phone =
+    trim(
+        $student["phone"]
+        ?? ""
+    );
+
+
+$birthdate =
+    trim(
+        $student["birthdate"]
+        ?? ""
+    );
+
+
+$gender =
+    trim(
+        $student["gender"]
+        ?? ""
+    );
+
+
+$address =
+    trim(
+        $student["address"]
+        ?? ""
+    );
+
+
+$campus =
+    trim(
+        $student["campus"]
+        ?? ""
+    );
+
+
+$aboutMe =
+    trim(
+        $student["about_me"]
+        ?? ""
+    );
+
+
+$profilePhoto =
+    trim(
+        $student["profile_photo"]
+        ?? ""
+    );
+
+
+/* =========================================================
+   PROFILE COMPLETION
+========================================================= */
 
 $completionFields = [
+
     $firstName,
     $lastName,
+
     $studentId,
+
     $program,
     $yearLevel,
     $section,
     $college,
+
     $phone,
     $birthdate,
     $gender,
     $address,
+
     $aboutMe
 ];
 
-$completedFields = 0;
-$totalFields = count($completionFields);
 
-foreach ($completionFields as $field) {
+$completedFields = 0;
+
+
+$totalFields =
+    count(
+        $completionFields
+    );
+
+
+foreach (
+    $completionFields
+    as $field
+) {
+
     if ($field !== "") {
+
         $completedFields++;
     }
 }
 
 
-$accomplishmentCountStmt = $conn->prepare("
-    SELECT COUNT(*) AS total
-    FROM accomplishments
-    WHERE user_id = ?
-");
+/* =========================================================
+   ACCOMPLISHMENT COUNT
+========================================================= */
 
-$accomplishmentCountStmt->bind_param(
-    "i",
-    $userId
-);
+$accomplishmentCount = 0;
 
-$accomplishmentCountStmt->execute();
 
-$accomplishmentCount = (int) (
+$accomplishmentCountStmt =
+    $conn->prepare("
+        SELECT
+            COUNT(*) AS total
+
+        FROM accomplishments
+
+        WHERE user_id = ?
+    ");
+
+
+if ($accomplishmentCountStmt) {
+
     $accomplishmentCountStmt
-        ->get_result()
-        ->fetch_assoc()["total"] ?? 0
-);
+        ->bind_param(
+            "i",
+            $userId
+        );
 
+
+    $accomplishmentCountStmt
+        ->execute();
+
+
+    $accomplishmentCount =
+        (int) (
+            $accomplishmentCountStmt
+                ->get_result()
+                ->fetch_assoc()["total"]
+            ?? 0
+        );
+
+
+    $accomplishmentCountStmt
+        ->close();
+}
+
+
+/* =========================================================
+   HOBBIES + INTERESTS COUNT
+========================================================= */
 
 $hobbyCount = 0;
 
-$hobbyTableCheck = $conn->query("
-    SHOW TABLES LIKE 'hobbies_interests'
-");
 
-if ($hobbyTableCheck && $hobbyTableCheck->num_rows > 0) {
+$hobbyStmt =
+    $conn->prepare("
+        SELECT
 
-    $hobbyStmt = $conn->prepare("
-        SELECT COUNT(*) AS total
-        FROM hobbies_interests
-        WHERE user_id = ?
+            (
+                SELECT COUNT(*)
+
+                FROM hobbies
+
+                WHERE user_id = ?
+            )
+
+            +
+
+            (
+                SELECT COUNT(*)
+
+                FROM interests
+
+                WHERE user_id = ?
+            )
+
+            AS total
     ");
 
+
+if ($hobbyStmt) {
+
     $hobbyStmt->bind_param(
-        "i",
+        "ii",
+
+        $userId,
         $userId
     );
+
 
     $hobbyStmt->execute();
 
-    $hobbyCount = (int) (
-        $hobbyStmt
-            ->get_result()
-            ->fetch_assoc()["total"] ?? 0
-    );
+
+    $hobbyCount =
+        (int) (
+            $hobbyStmt
+                ->get_result()
+                ->fetch_assoc()["total"]
+            ?? 0
+        );
+
+
+    $hobbyStmt->close();
 }
 
+
+/* =========================================================
+   ORGANIZATIONS COUNT
+========================================================= */
 
 $organizationCount = 0;
 
-$organizationTableCheck = $conn->query("
-    SHOW TABLES LIKE 'organizations_activities'
-");
 
-if (
-    $organizationTableCheck &&
-    $organizationTableCheck->num_rows > 0
-) {
+$organizationStmt =
+    $conn->prepare("
+        SELECT
+            COUNT(*) AS total
 
-    $organizationStmt = $conn->prepare("
-        SELECT COUNT(*) AS total
-        FROM organizations_activities
+        FROM organizations
+
         WHERE user_id = ?
     ");
 
-    $organizationStmt->bind_param(
-        "i",
-        $userId
+
+if ($organizationStmt) {
+
+    $organizationStmt
+        ->bind_param(
+            "i",
+            $userId
+        );
+
+
+    $organizationStmt
+        ->execute();
+
+
+    $organizationCount =
+        (int) (
+            $organizationStmt
+                ->get_result()
+                ->fetch_assoc()["total"]
+            ?? 0
+        );
+
+
+    $organizationStmt
+        ->close();
+}
+
+
+/* =========================================================
+   PROFILE COMPLETION MODULES
+========================================================= */
+
+if (
+    $accomplishmentCount > 0
+) {
+
+    $completedFields++;
+}
+
+$totalFields++;
+
+
+if (
+    $hobbyCount > 0
+) {
+
+    $completedFields++;
+}
+
+$totalFields++;
+
+
+if (
+    $organizationCount > 0
+) {
+
+    $completedFields++;
+}
+
+$totalFields++;
+
+
+/* =========================================================
+   COMPLETION PERCENTAGE
+========================================================= */
+
+if ($totalFields > 0) {
+
+    $profileCompletion =
+        (int) round(
+            (
+                $completedFields
+                /
+                $totalFields
+            )
+            * 100
+        );
+
+} else {
+
+    $profileCompletion = 0;
+}
+
+
+$profileCompletion =
+    max(
+        0,
+        min(
+            100,
+            $profileCompletion
+        )
     );
 
-    $organizationStmt->execute();
 
-    $organizationCount = (int) (
-        $organizationStmt
+/* =========================================================
+   PRIVACY
+========================================================= */
+
+$privacyVisibility =
+    "School Only";
+
+
+$privacyStmt =
+    $conn->prepare("
+        SELECT
+            profile_visibility
+
+        FROM privacy_settings
+
+        WHERE user_id = ?
+
+        LIMIT 1
+    ");
+
+
+if ($privacyStmt) {
+
+    $privacyStmt
+        ->bind_param(
+            "i",
+            $userId
+        );
+
+
+    $privacyStmt
+        ->execute();
+
+
+    $privacy =
+        $privacyStmt
             ->get_result()
-            ->fetch_assoc()["total"] ?? 0
-    );
-}
+            ->fetch_assoc();
 
 
-if ($accomplishmentCount > 0) {
-    $completedFields++;
-}
-
-$totalFields++;
-
-if ($hobbyCount > 0) {
-    $completedFields++;
-}
-
-$totalFields++;
-
-if ($organizationCount > 0) {
-    $completedFields++;
-}
-
-$totalFields++;
+    $privacyStmt
+        ->close();
 
 
-$profileCompletion = (int) round(
-    ($completedFields / $totalFields) * 100
-);
+    if ($privacy) {
 
-$profileCompletion = max(
-    0,
-    min(100, $profileCompletion)
-);
+        $visibilityValue =
+            $privacy[
+                "profile_visibility"
+            ]
+            ?? "school_only";
 
 
-$privacyVisibility = "Private";
+        if (
+            $visibilityValue
+            === "public"
+        ) {
 
-$privacyStmt = $conn->prepare("
-    SELECT profile_visibility
-    FROM privacy_settings
-    WHERE user_id = ?
-    LIMIT 1
-");
+            $privacyVisibility =
+                "Public";
 
-$privacyStmt->bind_param(
-    "i",
-    $userId
-);
+        } elseif (
+            $visibilityValue
+            === "school_only"
+        ) {
 
-$privacyStmt->execute();
+            $privacyVisibility =
+                "School Only";
 
-$privacy = $privacyStmt
-    ->get_result()
-    ->fetch_assoc();
+        } else {
 
-if ($privacy) {
-
-    $visibilityValue = $privacy["profile_visibility"] ?? "private";
-
-    if ($visibilityValue === "public") {
-        $privacyVisibility = "Public";
-    } elseif ($visibilityValue === "school") {
-        $privacyVisibility = "School Only";
-    } else {
-        $privacyVisibility = "Private";
+            $privacyVisibility =
+                "Private";
+        }
     }
 }
 
 
+/* =========================================================
+   RECENT ACCOMPLISHMENTS
+========================================================= */
+
 $recentAccomplishments = [];
 
-$recentStmt = $conn->prepare("
-    SELECT
-        title,
-        category,
-        date_achieved
-    FROM accomplishments
-    WHERE user_id = ?
-    ORDER BY date_achieved DESC, id DESC
-    LIMIT 5
-");
 
-$recentStmt->bind_param(
-    "i",
-    $userId
-);
+$recentStmt =
+    $conn->prepare("
+        SELECT
 
-$recentStmt->execute();
+            title,
+            category,
+            date_achieved
 
-$recentResult = $recentStmt->get_result();
+        FROM accomplishments
 
-while ($row = $recentResult->fetch_assoc()) {
+        WHERE user_id = ?
 
-    $recentAccomplishments[] = $row;
+        ORDER BY
+
+            date_achieved DESC,
+            id DESC
+
+        LIMIT 5
+    ");
+
+
+if ($recentStmt) {
+
+    $recentStmt
+        ->bind_param(
+            "i",
+            $userId
+        );
+
+
+    $recentStmt
+        ->execute();
+
+
+    $recentResult =
+        $recentStmt
+            ->get_result();
+
+
+    while (
+        $row =
+            $recentResult
+                ->fetch_assoc()
+    ) {
+
+        $recentAccomplishments[] =
+            $row;
+    }
+
+
+    $recentStmt->close();
 }
 
 
-$profileStatus = $student["account_status"] ?? "pending";
+/* =========================================================
+   ACCOUNT STATUS
+========================================================= */
 
-if ($profileStatus === "active") {
-    $accountStatus = "Active";
-} elseif ($profileStatus === "pending") {
-    $accountStatus = "Pending";
-} elseif ($profileStatus === "suspended") {
-    $accountStatus = "Suspended";
+$profileStatus =
+    $student["account_status"]
+    ?? "pending";
+
+
+if (
+    $profileStatus
+    === "active"
+) {
+
+    $accountStatus =
+        "Active";
+
+} elseif (
+    $profileStatus
+    === "pending"
+) {
+
+    $accountStatus =
+        "Pending";
+
+} elseif (
+    $profileStatus
+    === "suspended"
+) {
+
+    $accountStatus =
+        "Suspended";
+
+} elseif (
+    $profileStatus
+    === "archived"
+) {
+
+    $accountStatus =
+        "Archived";
+
+} elseif (
+    $profileStatus
+    === "deactivated"
+) {
+
+    $accountStatus =
+        "Deactivated";
+
 } else {
-    $accountStatus = ucfirst($profileStatus);
+
+    $accountStatus =
+        ucfirst(
+            $profileStatus
+        );
 }
 
 
-$programDisplay = $program !== ""
-    ? $program
-    : "Program not added";
+/* =========================================================
+   DISPLAY FALLBACKS
+========================================================= */
 
-$yearDisplay = $yearLevel !== ""
-    ? $yearLevel
-    : "Year level not added";
+$programDisplay =
+    $program !== ""
+        ? $program
+        : "Program not added";
 
-$studentIdDisplay = $studentId !== ""
-    ? $studentId
-    : "Student ID not added";
+
+$yearDisplay =
+    $yearLevel !== ""
+        ? $yearLevel
+        : "Year level not added";
+
+
+$studentIdDisplay =
+    $studentId !== ""
+        ? $studentId
+        : "Student ID not added";
 
 ?>
 
 <!DOCTYPE html>
+
 <html lang="en">
+
 
 <head>
 
     <meta charset="UTF-8">
+
 
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Dashboard | CVSWHO</title>
+
+    <title>
+        Dashboard | CVSWHO
+    </title>
+
 
     <link
         rel="stylesheet"
@@ -354,15 +799,29 @@ $studentIdDisplay = $studentId !== ""
 
 </head>
 
+
 <body>
+
+
+<!-- ================================================
+     NAVIGATION
+================================================ -->
 
 <header class="navbar">
 
+
     <div class="nav-container">
 
+
+        <!--
+            CVSWHO now returns to index.php
+            WITHOUT logging the student out.
+        -->
+
         <a
-            href="student_dashboard.php"
+            href="index.php"
             class="brand"
+            title="Back to CVSWHO Home"
         >
 
             <div class="brand-mark">
@@ -386,12 +845,14 @@ $studentIdDisplay = $studentId !== ""
 
         <nav class="desktop-nav">
 
+
             <a
                 href="student_dashboard.php"
                 class="nav-link active"
             >
                 Dashboard
             </a>
+
 
             <a
                 href="student_profile.php"
@@ -400,12 +861,14 @@ $studentIdDisplay = $studentId !== ""
                 Profile
             </a>
 
+
             <a
                 href="accomplishments.php"
                 class="nav-link"
             >
                 Accomplishments
             </a>
+
 
             <a
                 href="settings.php"
@@ -414,8 +877,14 @@ $studentIdDisplay = $studentId !== ""
                 Settings
             </a>
 
+
         </nav>
 
+
+        <!--
+            This is the ONLY thing that
+            destroys the session.
+        -->
 
         <a
             href="student_dashboard.php?logout=1"
@@ -424,7 +893,9 @@ $studentIdDisplay = $studentId !== ""
             Log out
         </a>
 
+
     </div>
+
 
 </header>
 
@@ -432,22 +903,38 @@ $studentIdDisplay = $studentId !== ""
 <main class="dashboard">
 
 
+    <!-- =========================================
+         WELCOME
+    ========================================== -->
+
     <section class="welcome-section">
 
+
         <div>
+
 
             <span class="eyebrow">
                 STUDENT DASHBOARD
             </span>
 
+
             <h1>
-                Welcome, <?= htmlspecialchars($studentName) ?>!
+
+                Welcome,
+
+                <?= htmlspecialchars(
+                    $studentName
+                ) ?>!
+
             </h1>
 
+
             <p>
-                Manage your student profile, accomplishments, and
-                activities in one place.
+                Manage your student profile,
+                accomplishments, and activities
+                in one place.
             </p>
+
 
         </div>
 
@@ -459,54 +946,97 @@ $studentIdDisplay = $studentId !== ""
             View Profile
         </a>
 
+
     </section>
 
 
+    <!-- =========================================
+         PROFILE COMPLETION
+    ========================================== -->
+
     <section class="completion-card">
+
 
         <div class="completion-content">
 
+
             <div>
+
 
                 <span class="section-label">
                     PROFILE COMPLETION
                 </span>
 
+
                 <h2>
-                    <?= $profileCompletion ?>% complete
+
+                    <?= $profileCompletion ?>%
+
+                    complete
+
                 </h2>
+
 
                 <p>
 
-                    <?php if ($profileCompletion >= 100): ?>
 
-                        Your profile is complete. You can continue adding
-                        accomplishments, hobbies, and activities.
+                    <?php if (
+                        $profileCompletion
+                        >= 100
+                    ): ?>
 
-                    <?php elseif ($profileCompletion > 0): ?>
 
-                        Keep your profile updated by adding your personal
-                        information, academic background, accomplishments,
+                        Your profile is complete.
+                        You can continue adding
+                        accomplishments, hobbies,
+                        and activities.
+
+
+                    <?php elseif (
+                        $profileCompletion
+                        > 0
+                    ): ?>
+
+
+                        Keep your profile updated
+                        by adding your personal
+                        information, academic
+                        background, accomplishments,
                         hobbies, and activities.
+
 
                     <?php else: ?>
 
-                        Start building your student profile by adding
-                        your personal and academic information.
+
+                        Start building your student
+                        profile by adding your
+                        personal and academic
+                        information.
+
 
                     <?php endif; ?>
 
+
                 </p>
+
 
             </div>
 
 
             <div
                 class="progress-circle"
-                style="--progress: <?= $profileCompletion ?>%;"
+                style="
+                    --progress:
+                    <?= $profileCompletion ?>%;
+                "
             >
 
-                <div class="progress-circle-inner">
+
+                <div
+                    class="
+                        progress-circle-inner
+                    "
+                >
 
                     <strong>
                         <?= $profileCompletion ?>%
@@ -518,29 +1048,48 @@ $studentIdDisplay = $studentId !== ""
 
                 </div>
 
+
             </div>
+
 
         </div>
 
 
         <div class="progress-bar">
 
+
             <div
                 class="progress-fill"
-                style="width: <?= $profileCompletion ?>%;"
+                style="
+                    width:
+                    <?= $profileCompletion ?>%;
+                "
             ></div>
 
+
         </div>
+
 
     </section>
 
 
+    <!-- =========================================
+         OVERVIEW
+    ========================================== -->
+
     <section class="overview-grid">
 
 
-        <div class="overview-card profile-overview">
+        <div
+            class="
+                overview-card
+                profile-overview
+            "
+        >
+
 
             <div class="card-header">
+
 
                 <div>
 
@@ -554,52 +1103,92 @@ $studentIdDisplay = $studentId !== ""
 
                 </div>
 
+
                 <span class="status-badge">
-                    <?= htmlspecialchars($accountStatus) ?>
+
+                    <?= htmlspecialchars(
+                        $accountStatus
+                    ) ?>
+
                 </span>
+
 
             </div>
 
 
             <div class="profile-details">
 
-                <?php if ($profilePhoto !== ""): ?>
+
+                <?php if (
+                    $profilePhoto !== ""
+                ): ?>
+
 
                     <img
-                        src="<?= htmlspecialchars($profilePhoto) ?>"
+                        src="<?= htmlspecialchars(
+                            $profilePhoto
+                        ) ?>"
                         alt="Profile photo"
-                        class="avatar avatar-image"
+                        class="
+                            avatar
+                            avatar-image
+                        "
                     >
+
 
                 <?php else: ?>
 
+
                     <div class="avatar">
-                        <?= htmlspecialchars($avatarInitial) ?>
+
+                        <?= htmlspecialchars(
+                            $avatarInitial
+                        ) ?>
+
                     </div>
+
 
                 <?php endif; ?>
 
 
                 <div>
 
+
                     <h3>
-                        <?= htmlspecialchars($studentName) ?>
+
+                        <?= htmlspecialchars(
+                            $studentName
+                        ) ?>
+
                     </h3>
 
+
                     <p>
-                        <?= htmlspecialchars($programDisplay) ?>
+
+                        <?= htmlspecialchars(
+                            $programDisplay
+                        ) ?>
+
                     </p>
 
+
                     <span>
-                        <?= htmlspecialchars($yearDisplay) ?>
+
+                        <?= htmlspecialchars(
+                            $yearDisplay
+                        ) ?>
+
                     </span>
 
+
                 </div>
+
 
             </div>
 
 
             <div class="profile-meta">
+
 
                 <div>
 
@@ -608,12 +1197,20 @@ $studentIdDisplay = $studentId !== ""
                     </span>
 
                     <strong>
-                        <?= htmlspecialchars($studentIdDisplay) ?>
+
+                        <?= htmlspecialchars(
+                            $studentIdDisplay
+                        ) ?>
+
                     </strong>
 
                 </div>
 
-                <?php if ($section !== ""): ?>
+
+                <?php if (
+                    $section !== ""
+                ): ?>
+
 
                     <div>
 
@@ -622,12 +1219,18 @@ $studentIdDisplay = $studentId !== ""
                         </span>
 
                         <strong>
-                            <?= htmlspecialchars($section) ?>
+
+                            <?= htmlspecialchars(
+                                $section
+                            ) ?>
+
                         </strong>
 
                     </div>
 
+
                 <?php endif; ?>
+
 
             </div>
 
@@ -639,12 +1242,24 @@ $studentIdDisplay = $studentId !== ""
                 View full profile →
             </a>
 
+
         </div>
 
 
-        <div class="overview-card visibility-card">
+        <!-- =====================================
+             VISIBILITY
+        ====================================== -->
+
+        <div
+            class="
+                overview-card
+                visibility-card
+            "
+        >
+
 
             <div class="card-header">
+
 
                 <div>
 
@@ -653,54 +1268,87 @@ $studentIdDisplay = $studentId !== ""
                     </span>
 
                     <h2>
-                        <?= htmlspecialchars($privacyVisibility) ?>
+
+                        <?= htmlspecialchars(
+                            $privacyVisibility
+                        ) ?>
+
                     </h2>
 
                 </div>
 
-                <div class="visibility-icon">
+
+                <div
+                    class="visibility-icon"
+                >
                     ✓
                 </div>
+
 
             </div>
 
 
             <p>
 
-                <?php if ($privacyVisibility === "Public"): ?>
 
-                    Your profile is currently visible publicly according
+                <?php if (
+                    $privacyVisibility
+                    === "Public"
+                ): ?>
+
+
+                    Your profile is currently
+                    visible publicly according
                     to your privacy settings.
 
-                <?php elseif ($privacyVisibility === "School Only"): ?>
 
-                    Your profile is currently visible to authorized
-                    users within the school.
+                <?php elseif (
+                    $privacyVisibility
+                    === "School Only"
+                ): ?>
+
+
+                    Your profile is currently
+                    visible to authorized users
+                    within the school.
+
 
                 <?php else: ?>
 
-                    Your profile is currently private.
+
+                    Your profile is currently
+                    private.
+
 
                 <?php endif; ?>
+
 
             </p>
 
 
             <a
-                href="settings.php"
+                href="privacy.php"
                 class="text-link"
             >
                 Manage privacy settings →
             </a>
 
+
         </div>
+
 
     </section>
 
 
+    <!-- =========================================
+         QUICK ACTIONS
+    ========================================== -->
+
     <section class="quick-actions">
 
+
         <div class="section-heading">
+
 
             <div>
 
@@ -713,6 +1361,7 @@ $studentIdDisplay = $studentId !== ""
                 </h2>
 
             </div>
+
 
         </div>
 
@@ -736,7 +1385,8 @@ $studentIdDisplay = $studentId !== ""
                     </h3>
 
                     <p>
-                        Review your student information.
+                        Review your student
+                        information.
                     </p>
 
                 </div>
@@ -749,7 +1399,7 @@ $studentIdDisplay = $studentId !== ""
 
 
             <a
-                href="student_profile.php?edit=1"
+                href="edit_profile.php"
                 class="action-card"
             >
 
@@ -764,7 +1414,8 @@ $studentIdDisplay = $studentId !== ""
                     </h3>
 
                     <p>
-                        Update your personal and academic details.
+                        Update your personal
+                        and academic details.
                     </p>
 
                 </div>
@@ -777,7 +1428,7 @@ $studentIdDisplay = $studentId !== ""
 
 
             <a
-                href="accomplishments.php?action=add"
+                href="add_accomplishment.php"
                 class="action-card"
             >
 
@@ -792,7 +1443,8 @@ $studentIdDisplay = $studentId !== ""
                     </h3>
 
                     <p>
-                        Add a new accomplishment or certificate.
+                        Add a new accomplishment
+                        or certificate.
                     </p>
 
                 </div>
@@ -803,14 +1455,26 @@ $studentIdDisplay = $studentId !== ""
 
             </a>
 
+
         </div>
+
 
     </section>
 
 
-    <section class="accomplishments-section">
+    <!-- =========================================
+         RECENT ACCOMPLISHMENTS
+    ========================================== -->
+
+    <section
+        class="
+            accomplishments-section
+        "
+    >
+
 
         <div class="section-heading">
+
 
             <div>
 
@@ -832,123 +1496,240 @@ $studentIdDisplay = $studentId !== ""
                 View all →
             </a>
 
+
         </div>
 
 
-        <div class="accomplishment-list">
+        <?php if (
+            count(
+                $recentAccomplishments
+            ) > 0
+        ): ?>
 
-            <?php if (count($recentAccomplishments) > 0): ?>
 
-                <?php foreach ($recentAccomplishments as $accomplishment): ?>
+            <div
+                class="accomplishment-list"
+            >
 
-                    <div class="accomplishment-item">
 
-                        <div class="achievement-icon">
+                <?php foreach (
+                    $recentAccomplishments
+                    as $accomplishment
+                ): ?>
+
+
+                    <div
+                        class="
+                            accomplishment-item
+                        "
+                    >
+
+
+                        <div
+                            class="
+                                achievement-icon
+                            "
+                        >
                             ✓
                         </div>
 
 
-                        <div class="achievement-info">
+                        <div
+                            class="
+                                achievement-info
+                            "
+                        >
+
 
                             <h3>
+
                                 <?= htmlspecialchars(
-                                    $accomplishment["title"]
+                                    $accomplishment[
+                                        "title"
+                                    ]
                                 ) ?>
+
                             </h3>
 
+
                             <p>
+
                                 <?= htmlspecialchars(
-                                    $accomplishment["category"]
+                                    $accomplishment[
+                                        "category"
+                                    ]
                                 ) ?>
+
                             </p>
+
 
                         </div>
 
 
-                        <span class="achievement-date">
+                        <span
+                            class="
+                                achievement-date
+                            "
+                        >
+
 
                             <?php
 
                             if (
                                 !empty(
-                                    $accomplishment["date_achieved"]
+                                    $accomplishment[
+                                        "date_achieved"
+                                    ]
                                 )
                             ) {
 
-                                echo htmlspecialchars(
-                                    date(
-                                        "M d, Y",
-                                        strtotime(
-                                            $accomplishment["date_achieved"]
+                                echo
+                                    htmlspecialchars(
+                                        date(
+                                            "M d, Y",
+                                            strtotime(
+                                                $accomplishment[
+                                                    "date_achieved"
+                                                ]
+                                            )
                                         )
-                                    )
-                                );
+                                    );
 
                             } else {
 
-                                echo "Date not added";
-
+                                echo
+                                    "Date not added";
                             }
 
                             ?>
 
+
                         </span>
 
+
                     </div>
+
 
                 <?php endforeach; ?>
 
-            <?php else: ?>
 
-                <div class="empty-accomplishments">
+            </div>
 
-                    <div class="empty-achievement-icon">
+
+        <?php else: ?>
+
+
+            <!-- =====================================
+                 EMPTY ACCOMPLISHMENT STATE
+            ====================================== -->
+
+            <div
+                class="
+                    accomplishment-empty-card
+                "
+            >
+
+
+                <div
+                    class="
+                        accomplishment-empty-icon
+                    "
+                >
+
+                    <span>
                         +
-                    </div>
-
-                    <div>
-
-                        <h3>
-                            No accomplishments yet
-                        </h3>
-
-                        <p>
-                            Your latest accomplishments will appear here
-                            after you add them.
-                        </p>
-
-                    </div>
-
-                    <a
-                        href="accomplishments.php?action=add"
-                        class="empty-action"
-                    >
-                        Add accomplishment
-                    </a>
+                    </span>
 
                 </div>
 
-            <?php endif; ?>
 
-        </div>
+                <div
+                    class="
+                        accomplishment-empty-content
+                    "
+                >
+
+
+                    <span
+                        class="
+                            accomplishment-empty-label
+                        "
+                    >
+                        START YOUR JOURNEY
+                    </span>
+
+
+                    <h3>
+                        No accomplishments yet
+                    </h3>
+
+
+                    <p>
+                        Your achievements will
+                        appear here once you add
+                        your first accomplishment,
+                        certificate, project,
+                        competition, or activity.
+                    </p>
+
+
+                </div>
+
+
+                <a
+                    href="add_accomplishment.php"
+                    class="
+                        accomplishment-empty-button
+                    "
+                >
+
+                    <span>
+                        Add accomplishment
+                    </span>
+
+                    <span
+                        class="
+                            accomplishment-button-arrow
+                        "
+                    >
+                        →
+                    </span>
+
+                </a>
+
+
+            </div>
+
+
+        <?php endif; ?>
+
 
     </section>
+
 
 </main>
 
 
+<!-- ================================================
+     FOOTER
+================================================ -->
+
 <footer class="footer">
 
+
     <p>
-        StudentProfiler
+        CVSWHO
     </p>
+
 
     <span>
         Manage your student profile with ease.
     </span>
 
+
 </footer>
 
 
 </body>
+
 </html>
