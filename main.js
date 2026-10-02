@@ -271,7 +271,6 @@ window.addEventListener(
     }
 );
 
-
 /* INITIAL UNDERLINE */
 
 window.addEventListener(
