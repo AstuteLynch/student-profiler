@@ -845,14 +845,12 @@ $studentIdDisplay =
 
         <nav class="desktop-nav">
 
-
             <a
                 href="student_dashboard.php"
                 class="nav-link active"
             >
                 Dashboard
             </a>
-
 
             <a
                 href="student_profile.php"
@@ -861,7 +859,6 @@ $studentIdDisplay =
                 Profile
             </a>
 
-
             <a
                 href="accomplishments.php"
                 class="nav-link"
@@ -869,6 +866,12 @@ $studentIdDisplay =
                 Accomplishments
             </a>
 
+            <a
+                href="privacy.php"
+                class="nav-link"
+            >
+                Privacy
+            </a>
 
             <a
                 href="settings.php"
@@ -876,7 +879,6 @@ $studentIdDisplay =
             >
                 Settings
             </a>
-
 
         </nav>
 

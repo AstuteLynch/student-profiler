@@ -593,14 +593,12 @@ function profileValue(
 
         <nav class="desktop-nav">
 
-
             <a
                 href="student_dashboard.php"
                 class="nav-link"
             >
                 Dashboard
             </a>
-
 
             <a
                 href="student_profile.php"
@@ -609,7 +607,6 @@ function profileValue(
                 Profile
             </a>
 
-
             <a
                 href="accomplishments.php"
                 class="nav-link"
@@ -617,6 +614,12 @@ function profileValue(
                 Accomplishments
             </a>
 
+            <a
+                href="privacy.php"
+                class="nav-link"
+            >
+                Privacy
+            </a>
 
             <a
                 href="settings.php"
@@ -624,7 +627,6 @@ function profileValue(
             >
                 Settings
             </a>
-
 
         </nav>
 

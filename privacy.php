@@ -798,14 +798,12 @@ function privacyOptions(
 
         <nav class="desktop-nav">
 
-
             <a
                 href="student_dashboard.php"
                 class="nav-link"
             >
                 Dashboard
             </a>
-
 
             <a
                 href="student_profile.php"
@@ -814,14 +812,12 @@ function privacyOptions(
                 Profile
             </a>
 
-
             <a
                 href="accomplishments.php"
                 class="nav-link"
             >
                 Accomplishments
             </a>
-
 
             <a
                 href="privacy.php"
@@ -830,6 +826,12 @@ function privacyOptions(
                 Privacy
             </a>
 
+            <a
+                href="settings.php"
+                class="nav-link"
+            >
+                Settings
+            </a>
 
         </nav>
 
