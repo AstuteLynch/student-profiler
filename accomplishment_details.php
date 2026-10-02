@@ -59,9 +59,7 @@ $csrfToken =
     ];
 
 
-/* =========================================================
-   LOAD RECORD OWNED BY CURRENT USER
-========================================================= */
+/*LOAD RECORD OWNED BY CURRENT USER*/
 
 $stmt =
     $conn->prepare("
