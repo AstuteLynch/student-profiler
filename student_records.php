@@ -2036,7 +2036,7 @@ function buildRecordsUrl(
         <?php endif; ?>
 
 
-        <!-- PAGINATION -->
+        <!-- PAGINATION-->
 
         <?php if (
             $totalPages > 1
@@ -2199,7 +2199,6 @@ function buildRecordsUrl(
     <span>
         Administrator Portal
     </span>
-
 
 </footer>
 
