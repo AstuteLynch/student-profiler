@@ -326,6 +326,87 @@ a {
 }
 
 
+/* PASSWORD */
+
+.password-wrapper {
+    position: relative;
+
+    width: 100%;
+}
+
+.password-wrapper input {
+    padding-right: 48px;
+}
+
+.password-toggle {
+    position: absolute;
+
+    top: 50%;
+    right: 12px;
+
+    width: 30px;
+    height: 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    transform: translateY(-50%);
+
+    padding: 0;
+
+    color: var(--text-muted);
+
+    background: transparent;
+
+    border: none;
+
+    border-radius: 7px;
+
+    cursor: pointer;
+
+    transition:
+        color 0.2s ease,
+        background 0.2s ease;
+}
+
+.password-toggle:hover {
+    color: var(--primary-green);
+
+    background: var(--light-green);
+}
+
+.password-toggle:focus-visible {
+    outline: 2px solid var(--primary-green);
+    outline-offset: 2px;
+}
+
+.eye-icon {
+    width: 18px;
+    height: 18px;
+
+    fill: none;
+
+    stroke: currentColor;
+
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.eye-closed {
+    display: none;
+}
+
+.password-toggle.is-visible .eye-open {
+    display: none;
+}
+
+.password-toggle.is-visible .eye-closed {
+    display: block;
+}
+
+
 /* HELP TEXT */
 
 .input-help {
@@ -338,6 +419,112 @@ a {
     line-height: 1.5;
 
     margin-top: 6px;
+}
+
+
+/* TERMS */
+
+.terms-agreement {
+    width: 100%;
+
+    margin: 2px 0 20px;
+}
+
+.terms-checkbox {
+    position: relative;
+
+    display: flex;
+    align-items: flex-start;
+
+    gap: 10px;
+
+    cursor: pointer;
+}
+
+.terms-checkbox input {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    opacity: 0;
+
+    pointer-events: none;
+}
+
+.custom-checkbox {
+    width: 18px;
+    height: 18px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-top: 1px;
+
+    background: #ffffff;
+
+    border: 1px solid var(--border-hover);
+
+    border-radius: 5px;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.terms-checkbox:hover .custom-checkbox {
+    border-color: var(--primary-green);
+}
+
+.terms-checkbox input:checked
++ .custom-checkbox {
+    background: var(--primary-green);
+
+    border-color: var(--primary-green);
+}
+
+.terms-checkbox input:checked
++ .custom-checkbox::after {
+    content: "✓";
+
+    color: var(--white);
+
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.terms-checkbox input:focus-visible
++ .custom-checkbox {
+    border-color: var(--primary-green);
+
+    box-shadow:
+        0 0 0 3px rgba(0, 122, 69, 0.09);
+}
+
+.terms-text {
+    color: var(--text-muted);
+
+    font-size: 10px;
+
+    line-height: 1.6;
+}
+
+.terms-text a {
+    color: var(--primary-green);
+
+    font-weight: 700;
+
+    transition: color 0.2s ease;
+}
+
+.terms-text a:hover {
+    color: var(--primary-green-dark);
+
+    text-decoration: underline;
 }
 
 
@@ -596,6 +783,15 @@ a {
 
     .auth-button {
         height: 47px;
+    }
+
+    .password-toggle {
+        width: 28px;
+        height: 28px;
+    }
+
+    .terms-text {
+        font-size: 9px;
     }
 }
 

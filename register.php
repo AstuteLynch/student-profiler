@@ -31,6 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $email = strtolower(trim($_POST["email"] ?? ""));
     $password = $_POST["password"] ?? "";
     $confirmPassword = $_POST["confirm_password"] ?? "";
+    $agreeTerms = isset($_POST["agree_terms"]);
 
     if (
         $firstName === "" ||
@@ -64,6 +65,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } elseif ($password !== $confirmPassword) {
         $error =
             "Passwords do not match.";
+
+    } elseif (!$agreeTerms) {
+        $error =
+            "You must read and agree to the Terms and Conditions before creating an account.";
 
     } else {
 
@@ -591,13 +596,64 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         Password
                     </label>
 
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        placeholder="Create a password"
-                        required
-                    >
+                    <div class="password-wrapper">
+
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Create a password"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            id="passwordToggle"
+                            aria-label="Show password"
+                        >
+
+                            <svg
+                                class="eye-icon eye-open"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"
+                                ></path>
+
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="3"
+                                ></circle>
+                            </svg>
+
+                            <svg
+                                class="eye-icon eye-closed"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M3 3l18 18"
+                                ></path>
+
+                                <path
+                                    d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16.4 16.4 0 0 1-3.1 3.8"
+                                ></path>
+
+                                <path
+                                    d="M6.1 6.1C3.8 7.7 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 4.1-.9"
+                                ></path>
+
+                                <path
+                                    d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
+                                ></path>
+                            </svg>
+
+                        </button>
+
+                    </div>
 
                     <span class="input-help">
                         At least 8 characters with uppercase, lowercase, and a number.
@@ -612,13 +668,97 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         Confirm Password
                     </label>
 
-                    <input
-                        type="password"
-                        id="confirm_password"
-                        name="confirm_password"
-                        placeholder="Confirm your password"
-                        required
-                    >
+                    <div class="password-wrapper">
+
+                        <input
+                            type="password"
+                            id="confirm_password"
+                            name="confirm_password"
+                            placeholder="Confirm your password"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            id="confirmPasswordToggle"
+                            aria-label="Show confirm password"
+                        >
+
+                            <svg
+                                class="eye-icon eye-open"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"
+                                ></path>
+
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="3"
+                                ></circle>
+                            </svg>
+
+                            <svg
+                                class="eye-icon eye-closed"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M3 3l18 18"
+                                ></path>
+
+                                <path
+                                    d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16.4 16.4 0 0 1-3.1 3.8"
+                                ></path>
+
+                                <path
+                                    d="M6.1 6.1C3.8 7.7 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 4.1-.9"
+                                ></path>
+
+                                <path
+                                    d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
+                                ></path>
+                            </svg>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="terms-agreement">
+
+                    <label class="terms-checkbox">
+
+                        <input
+                            type="checkbox"
+                            name="agree_terms"
+                            value="1"
+                            <?= isset($_POST["agree_terms"])
+                                ? "checked"
+                                : "" ?>
+                            required
+                        >
+
+                        <span class="custom-checkbox"></span>
+
+                        <span class="terms-text">
+                            I have read and agree to the
+                            <a
+                                href="terms.html"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Terms and Conditions
+                            </a>
+                            of CVSWHO.
+                        </span>
+
+                    </label>
 
                 </div>
 
@@ -634,9 +774,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
             <div class="auth-divider">
+
                 <span>
                     OR
                 </span>
+
             </div>
 
 
@@ -685,6 +827,72 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     </div>
 
 </div>
+
+
+<script>
+
+    function setupPasswordToggle(
+        inputId,
+        buttonId
+    ) {
+        const passwordInput =
+            document.getElementById(
+                inputId
+            );
+
+        const toggleButton =
+            document.getElementById(
+                buttonId
+            );
+
+        if (
+            !passwordInput ||
+            !toggleButton
+        ) {
+            return;
+        }
+
+        toggleButton.addEventListener(
+            "click",
+            function () {
+
+                const isHidden =
+                    passwordInput.type ===
+                    "password";
+
+                passwordInput.type =
+                    isHidden
+                        ? "text"
+                        : "password";
+
+                toggleButton.classList.toggle(
+                    "is-visible",
+                    isHidden
+                );
+
+                toggleButton.setAttribute(
+                    "aria-label",
+                    isHidden
+                        ? "Hide password"
+                        : "Show password"
+                );
+            }
+        );
+    }
+
+
+    setupPasswordToggle(
+        "password",
+        "passwordToggle"
+    );
+
+
+    setupPasswordToggle(
+        "confirm_password",
+        "confirmPasswordToggle"
+    );
+
+</script>
 
 </body>
 
