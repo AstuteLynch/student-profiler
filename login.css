@@ -497,6 +497,35 @@ a {
 }
 
 
+/* FORGOT PASSWORD */
+
+.forgot-link {
+    display: inline-flex;
+    align-items: center;
+
+    color: var(--primary-green);
+
+    font-size: 10px;
+    font-weight: 700;
+
+    line-height: 1;
+
+    padding: 4px 7px;
+
+    border-radius: 6px;
+
+    transition:
+        color 0.2s ease,
+        background 0.2s ease;
+}
+
+.forgot-link:hover {
+    color: var(--deep-green);
+
+    background: var(--light-green);
+}
+
+
 /* LOGIN BUTTON */
 
 .auth-button {

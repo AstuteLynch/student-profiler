@@ -31,33 +31,40 @@ if (
     exit;
 }
 
+
 $userId =
     (int) $_SESSION[
         "pending_auth_user_id"
     ];
+
 
 $purpose =
     $_SESSION[
         "pending_auth_purpose"
     ];
 
+
 $email =
     $_SESSION[
         "pending_auth_email"
     ];
+
 
 $role =
     $_SESSION[
         "pending_auth_role"
     ] ?? "student";
 
+
 $devAuthCode =
     $_SESSION[
         "dev_auth_code"
     ] ?? "";
 
+
 $error = "";
 $success = "";
+
 
 /* VALID PURPOSE */
 
@@ -66,11 +73,13 @@ if (
         $purpose,
         [
             "registration",
-            "login"
+            "login",
+            "password_reset"
         ],
         true
     )
 ) {
+
     unset(
         $_SESSION[
             "pending_auth_user_id"
@@ -89,12 +98,15 @@ if (
         ]
     );
 
+
     header(
         "Location: login.php"
     );
 
+
     exit;
 }
+
 
 /* VERIFY */
 
@@ -113,12 +125,14 @@ if (
             ] ?? ""
         );
 
+
     if (
         !preg_match(
             '/^\d{6}$/',
             $enteredCode
         )
     ) {
+
         $error =
             "Please enter the 6-digit verification code.";
 
@@ -130,10 +144,12 @@ if (
             $enteredCode
         )
     ) {
+
         $error =
             "The verification code is incorrect, expired, or has reached the maximum number of attempts.";
 
     } else {
+
 
         /* REGISTRATION */
 
@@ -155,7 +171,9 @@ if (
                     LIMIT 1
                 ");
 
+
             if (!$stmt) {
+
                 $error =
                     "Unable to verify your account.";
 
@@ -166,20 +184,25 @@ if (
                     $userId
                 );
 
+
                 $stmt->execute();
+
 
                 $user =
                     $stmt
                         ->get_result()
                         ->fetch_assoc();
 
+
                 $stmt->close();
+
 
                 if (
                     !$user ||
                     ($user["role"] ?? "")
                     !== "student"
                 ) {
+
                     $error =
                         "Unable to verify your account.";
 
@@ -196,7 +219,9 @@ if (
                                 AND role = 'student'
                         ");
 
+
                     if (!$update) {
+
                         $error =
                             "Unable to verify your account.";
 
@@ -207,9 +232,11 @@ if (
                             $userId
                         );
 
+
                         if (
                             !$update->execute()
                         ) {
+
                             $error =
                                 "Unable to verify your account.";
 
@@ -219,17 +246,22 @@ if (
                                 true
                             );
 
+
                             $_SESSION["user_id"] =
                                 $userId;
+
 
                             $_SESSION["user_role"] =
                                 "student";
 
+
                             $_SESSION["role"] =
                                 "student";
 
+
                             $_SESSION["user_email"] =
                                 $email;
+
 
                             unset(
                                 $_SESSION[
@@ -249,17 +281,21 @@ if (
                                 ]
                             );
 
+
                             header(
                                 "Location: student_dashboard.php"
                             );
 
+
                             exit;
                         }
+
 
                         $update->close();
                     }
                 }
             }
+
 
         /* LOGIN */
 
@@ -280,6 +316,7 @@ if (
                     LIMIT 1
                 ");
 
+
             if (!$stmt) {
 
                 $error =
@@ -292,14 +329,18 @@ if (
                     $userId
                 );
 
+
                 $stmt->execute();
+
 
                 $user =
                     $stmt
                         ->get_result()
                         ->fetch_assoc();
 
+
                 $stmt->close();
+
 
                 if (!$user) {
 
@@ -344,17 +385,22 @@ if (
                         true
                     );
 
+
                     $_SESSION["user_id"] =
                         (int) $user["id"];
+
 
                     $_SESSION["user_role"] =
                         $user["role"];
 
+
                     $_SESSION["role"] =
                         $user["role"];
 
+
                     $_SESSION["user_email"] =
                         $user["email"];
+
 
                     unset(
                         $_SESSION[
@@ -374,19 +420,147 @@ if (
                         ]
                     );
 
+
                     if (
                         $user["role"]
                         === "administrator"
                     ) {
+
                         header(
                             "Location: admin_dashboard.php"
                         );
 
                     } else {
+
                         header(
                             "Location: student_dashboard.php"
                         );
                     }
+
+
+                    exit;
+                }
+            }
+
+
+        /* PASSWORD RESET */
+
+        } elseif (
+            $purpose === "password_reset"
+        ) {
+
+            $stmt =
+                $conn->prepare("
+                    SELECT
+                        id,
+                        email,
+                        role,
+                        account_status,
+                        email_verified
+                    FROM users
+                    WHERE id = ?
+                    LIMIT 1
+                ");
+
+
+            if (!$stmt) {
+
+                $error =
+                    "Unable to verify your password reset request.";
+
+            } else {
+
+                $stmt->bind_param(
+                    "i",
+                    $userId
+                );
+
+
+                $stmt->execute();
+
+
+                $user =
+                    $stmt
+                        ->get_result()
+                        ->fetch_assoc();
+
+
+                $stmt->close();
+
+
+                if (
+                    !$user ||
+                    (int) $user[
+                        "email_verified"
+                    ] !== 1
+                ) {
+
+                    $error =
+                        "Unable to verify your password reset request.";
+
+                } elseif (
+                    in_array(
+                        $user["account_status"],
+                        [
+                            "archived",
+                            "suspended",
+                            "pending"
+                        ],
+                        true
+                    )
+                ) {
+
+                    $error =
+                        "This account cannot currently reset its password.";
+
+                } else {
+
+                    session_regenerate_id(
+                        true
+                    );
+
+
+                    $_SESSION[
+                        "password_reset_verified"
+                    ] =
+                        true;
+
+
+                    $_SESSION[
+                        "password_reset_user_id"
+                    ] =
+                        (int) $user["id"];
+
+
+                    $_SESSION[
+                        "password_reset_email"
+                    ] =
+                        $user["email"];
+
+
+                    unset(
+                        $_SESSION[
+                            "pending_auth_user_id"
+                        ],
+                        $_SESSION[
+                            "pending_auth_purpose"
+                        ],
+                        $_SESSION[
+                            "pending_auth_email"
+                        ],
+                        $_SESSION[
+                            "pending_auth_role"
+                        ],
+                        $_SESSION[
+                            "dev_auth_code"
+                        ]
+                    );
+
+
+                    header(
+                        "Location: reset_password.php"
+                    );
+
 
                     exit;
                 }
@@ -394,6 +568,7 @@ if (
         }
     }
 }
+
 
 /* GENERATE NEW CODE */
 
@@ -418,6 +593,7 @@ if (
             LIMIT 1
         ");
 
+
     if (!$accountStmt) {
 
         $error =
@@ -430,14 +606,18 @@ if (
             $userId
         );
 
+
         $accountStmt->execute();
+
 
         $account =
             $accountStmt
                 ->get_result()
                 ->fetch_assoc();
 
+
         $accountStmt->close();
+
 
         if (!$account) {
 
@@ -469,6 +649,30 @@ if (
             $error =
                 "Invalid registration account.";
 
+        } elseif (
+            $purpose ===
+            "password_reset" &&
+            (
+                (int) $account[
+                    "email_verified"
+                ] !== 1 ||
+                in_array(
+                    $account[
+                        "account_status"
+                    ],
+                    [
+                        "archived",
+                        "suspended",
+                        "pending"
+                    ],
+                    true
+                )
+            )
+        ) {
+
+            $error =
+                "This account cannot currently reset its password.";
+
         } else {
 
             $code =
@@ -478,20 +682,32 @@ if (
                     $purpose
                 );
 
+
+            sendAuthCode(
+                $email,
+                $code,
+                $purpose
+            );
+
+
             /* DEVELOPMENT ONLY */
 
             $_SESSION[
                 "dev_auth_code"
-            ] = $code;
+            ] =
+                $code;
+
 
             $devAuthCode =
                 $code;
+
 
             $success =
                 "A new verification code has been generated.";
         }
     }
 }
+
 
 /* DISPLAY */
 
@@ -503,19 +719,39 @@ if (
     $pageTitle =
         "Verify Your Account";
 
+
     $pageDescription =
         "Enter the verification code generated for your account.";
 
+
     $buttonText =
         "Verify Account";
+
+} elseif (
+    $purpose ===
+    "password_reset"
+) {
+
+    $pageTitle =
+        "Verify Password Reset";
+
+
+    $pageDescription =
+        "Enter the verification code generated for your password reset request.";
+
+
+    $buttonText =
+        "Verify Code";
 
 } else {
 
     $pageTitle =
         "Verify Your Login";
 
+
     $pageDescription =
         "Enter the verification code generated for your account.";
+
 
     $buttonText =
         "Verify";
@@ -719,7 +955,7 @@ if (
                     </strong>
 
                     <small>
-                        No development code exists in this session. Go back and login or register again.
+                        No development code exists in this session.
                     </small>
 
                 </div>

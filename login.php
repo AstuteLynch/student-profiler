@@ -508,6 +508,13 @@ if (
                             Password
                         </label>
 
+                        <a
+                            href="forgot_password.php"
+                            class="forgot-link"
+                        >
+                            Forgot password?
+                        </a>
+
                     </div>
 
 

@@ -55,9 +55,7 @@ function createAuthCode(
     $invalidate =
         $conn->prepare("
             UPDATE authentication_codes
-
             SET used_at = NOW()
-
             WHERE
                 user_id = ?
                 AND purpose = ?
@@ -89,7 +87,6 @@ function createAuthCode(
                 purpose,
                 expires_at
             )
-
             VALUES
             (
                 ?,
@@ -149,16 +146,12 @@ function verifyAuthCode(
                 code_hash,
                 expires_at,
                 attempts
-
             FROM authentication_codes
-
             WHERE
                 user_id = ?
                 AND purpose = ?
                 AND used_at IS NULL
-
             ORDER BY id DESC
-
             LIMIT 1
         ");
 
@@ -222,9 +215,7 @@ function verifyAuthCode(
         $attempt =
             $conn->prepare("
                 UPDATE authentication_codes
-
                 SET attempts = attempts + 1
-
                 WHERE id = ?
             ");
 
@@ -254,9 +245,7 @@ function verifyAuthCode(
     $used =
         $conn->prepare("
             UPDATE authentication_codes
-
             SET used_at = NOW()
-
             WHERE id = ?
         ");
 
@@ -312,6 +301,19 @@ function sendAuthCode(
 
         $message =
             "Your CVSWHO account reactivation code is: " .
+            $code .
+            "\n\nThis code will expire in 10 minutes.";
+
+    } elseif (
+        $purpose === "password_reset"
+    ) {
+
+        $subject =
+            "CVSWHO Password Reset Code";
+
+
+        $message =
+            "Your CVSWHO password reset code is: " .
             $code .
             "\n\nThis code will expire in 10 minutes.";
 
@@ -404,11 +406,8 @@ function requireLogin(
                 role,
                 account_status,
                 email_verified
-
             FROM users
-
             WHERE id = ?
-
             LIMIT 1
         ");
 
@@ -513,11 +512,8 @@ function requireAdmin(
                 role,
                 account_status,
                 email_verified
-
             FROM users
-
             WHERE id = ?
-
             LIMIT 1
         ");
 
