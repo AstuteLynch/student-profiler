@@ -201,256 +201,17 @@ $stmt->close();
         Administrator Dashboard | CVSWHO
     </title>
 
-    <style>
-
-        :root {
-            --primary: #006b3f;
-            --deep: #004d2a;
-            --dark: #003d24;
-            --light: #e6f3eb;
-            --background: #f5f8f6;
-            --border: #dce7e0;
-            --text: #1d2b24;
-            --muted: #68766f;
-            --white: #ffffff;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            min-height: 100vh;
-            background: var(--background);
-            color: var(--text);
-            font-family: Inter, Arial, sans-serif;
-        }
-
-        a {
-            text-decoration: none;
-        }
-
-        .navbar {
-            background: var(--white);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .nav-container {
-            width: min(1180px, calc(100% - 40px));
-            min-height: 72px;
-            margin: auto;
-            display: flex;
-            align-items: center;
-            gap: 35px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-right: auto;
-        }
-
-        .brand-mark {
-            width: 36px;
-            height: 36px;
-            display: grid;
-            place-items: center;
-            border-radius: 9px;
-            color: white;
-            background: var(--primary);
-            font-weight: 800;
-        }
-
-        .brand-text span {
-            display: block;
-        }
-
-        .brand-name {
-            color: var(--dark);
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .brand-subtitle {
-            margin-top: 2px;
-            color: var(--muted);
-            font-size: 8px;
-        }
-
-        .desktop-nav {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .nav-link {
-            color: var(--muted);
-            font-size: 9px;
-            font-weight: 700;
-        }
-
-        .nav-link.active {
-            color: var(--primary);
-        }
-
-        .logout-button {
-            padding: 9px 13px;
-            color: var(--primary);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            font-size: 9px;
-            font-weight: 700;
-        }
-
-        .page {
-            width: min(1120px, calc(100% - 40px));
-            margin: 38px auto 60px;
-        }
-
-        .eyebrow {
-            color: var(--primary);
-            font-size: 8px;
-            font-weight: 800;
-            letter-spacing: 1px;
-        }
-
-        .page-header h1 {
-            margin-top: 7px;
-            color: var(--dark);
-            font-size: 30px;
-        }
-
-        .page-header p {
-            margin-top: 8px;
-            color: var(--muted);
-            font-size: 10px;
-        }
-
-        .summary-grid {
-            margin-top: 25px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-        }
-
-        .summary-card,
-        .content-card {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-        }
-
-        .summary-card {
-            padding: 20px;
-        }
-
-        .summary-card span {
-            color: var(--muted);
-            font-size: 8px;
-            font-weight: 700;
-        }
-
-        .summary-card strong {
-            display: block;
-            margin-top: 8px;
-            color: var(--primary);
-            font-size: 25px;
-        }
-
-        .content-card {
-            margin-top: 20px;
-            padding: 22px;
-        }
-
-        .section-heading {
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
-            margin-bottom: 15px;
-        }
-
-        .section-heading h2 {
-            color: var(--dark);
-            font-size: 16px;
-        }
-
-        .primary-button {
-            padding: 9px 13px;
-            color: white;
-            background: var(--primary);
-            border-radius: 7px;
-            font-size: 9px;
-            font-weight: 700;
-        }
-
-        .student-list {
-            border-top: 1px solid var(--border);
-        }
-
-        .student-row {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 15px 3px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .student-row-content {
-            flex: 1;
-        }
-
-        .student-row h3 {
-            color: var(--dark);
-            font-size: 10px;
-        }
-
-        .student-row p {
-            margin-top: 4px;
-            color: var(--muted);
-            font-size: 8px;
-        }
-
-        .status {
-            padding: 5px 8px;
-            background: var(--light);
-            color: var(--primary);
-            border-radius: 20px;
-            font-size: 7px;
-            font-weight: 800;
-            text-transform: uppercase;
-        }
-
-        .view-button {
-            color: var(--primary);
-            font-size: 8px;
-            font-weight: 700;
-        }
-
-        @media (max-width: 800px) {
-            .summary-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .desktop-nav {
-                display: none;
-            }
-        }
-
-        @media (max-width: 500px) {
-            .summary-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-    </style>
+    <link
+        rel="stylesheet"
+        href="admin_dashboard.css"
+    >
 
 </head>
 
 <body>
 
+
+<!-- NAVIGATION -->
 
 <header class="navbar">
 
@@ -507,7 +268,7 @@ $stmt->close();
 
 
         <a
-            href="admin_dashboard.php?logout=1"
+            href="logout.php"
             class="logout-button"
         >
             Log out
@@ -518,8 +279,12 @@ $stmt->close();
 </header>
 
 
+<!-- PAGE -->
+
 <main class="page">
 
+
+    <!-- HEADER -->
 
     <section class="page-header">
 
@@ -539,36 +304,70 @@ $stmt->close();
     </section>
 
 
+    <!-- SUMMARY -->
+
     <section class="summary-grid">
 
         <div class="summary-card">
-            <span>TOTAL STUDENTS</span>
-            <strong><?= $summary["total"] ?></strong>
-        </div>
 
-        <div class="summary-card">
-            <span>ACTIVE STUDENTS</span>
-            <strong><?= $summary["active"] ?></strong>
-        </div>
-
-        <div class="summary-card">
-            <span>PENDING ACCOUNTS</span>
-            <strong><?= $summary["pending"] ?></strong>
-        </div>
-
-        <div class="summary-card">
-            <span>RESTRICTED / INACTIVE</span>
+            <span>
+                TOTAL STUDENTS
+            </span>
 
             <strong>
+                <?= $summary["total"] ?>
+            </strong>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <span>
+                ACTIVE STUDENTS
+            </span>
+
+            <strong>
+                <?= $summary["active"] ?>
+            </strong>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <span>
+                PENDING ACCOUNTS
+            </span>
+
+            <strong>
+                <?= $summary["pending"] ?>
+            </strong>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <span>
+                RESTRICTED / INACTIVE
+            </span>
+
+            <strong>
+
                 <?= $summary["suspended"] +
                     $summary["archived"] +
                     $summary["deactivated"]
                 ?>
+
             </strong>
+
         </div>
 
     </section>
 
+
+    <!-- RECENT STUDENTS -->
 
     <section class="content-card">
 
@@ -587,6 +386,7 @@ $stmt->close();
 
             </div>
 
+
             <a
                 href="student_records.php"
                 class="primary-button"
@@ -603,6 +403,7 @@ $stmt->close();
                 $recentStudents
                 as $student
             ): ?>
+
 
                 <?php
 
@@ -625,12 +426,15 @@ $stmt->close();
 
                 <div class="student-row">
 
+
                     <div class="student-row-content">
 
                         <h3>
+
                             <?= htmlspecialchars(
                                 $name
                             ) ?>
+
                         </h3>
 
                         <p>
@@ -653,6 +457,7 @@ $stmt->close();
 
                     </div>
 
+
                     <span class="status">
 
                         <?= htmlspecialchars(
@@ -663,6 +468,7 @@ $stmt->close();
 
                     </span>
 
+
                     <a
                         href="admin_student_profile.php?id=<?= (int) $student["id"] ?>"
                         class="view-button"
@@ -670,9 +476,12 @@ $stmt->close();
                         Open Profile →
                     </a>
 
+
                 </div>
 
+
             <?php endforeach; ?>
+
 
         </div>
 
