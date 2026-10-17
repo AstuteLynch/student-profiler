@@ -563,12 +563,12 @@ if (
             >
                 Accomplishments
             </a>
-    <a
-        href="organizations.php"
-        class="nav-link"
-    >
-        Organizations
-    </a>
+            <a
+                href="organizations.php"
+                class="nav-link"
+            >
+                Organizations
+            </a>
 
             <a
                 href="privacy.php"
@@ -632,12 +632,6 @@ if (
         >
             ← Back to Accomplishments
         </a>
-    <a
-        href="organizations.php"
-        class="nav-link"
-    >
-        Organizations
-    </a>
 
 
     </section>
@@ -967,12 +961,6 @@ if (
             >
                 Cancel
             </a>
-    <a
-        href="organizations.php"
-        class="nav-link"
-    >
-        Organizations
-    </a>
 
 
             <button
