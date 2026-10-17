@@ -373,13 +373,6 @@ $students =
             </a>
 
             <a
-                href="admin_trash.php"
-                class="nav-link"
-            >
-                Trash
-            </a>
-
-            <a
                 href="admin_settings.php"
                 class="nav-link"
             >

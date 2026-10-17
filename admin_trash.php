@@ -299,14 +299,6 @@ $deletedStudents =
             >
                 Student Records
             </a>
-
-            <a
-                href="admin_trash.php"
-                class="nav-link active"
-            >
-                Trash
-            </a>
-
             <a
                 href="admin_settings.php"
                 class="nav-link"
