@@ -1,5 +1,5 @@
-<?php
 
+<?php
 
 /* CVSU EMAIL */
 
@@ -17,10 +17,7 @@ function isCvsuEmail(string $email): bool
 function generateAuthCode(): string
 {
     return str_pad(
-        (string) random_int(
-            0,
-            999999
-        ),
+        (string) random_int(0, 999999),
         6,
         "0",
         STR_PAD_LEFT
@@ -34,34 +31,26 @@ function createAuthCode(
     string $purpose
 ): string {
 
-    $code =
-        generateAuthCode();
+    $code = generateAuthCode();
 
+    $codeHash = password_hash(
+        $code,
+        PASSWORD_DEFAULT
+    );
 
-    $codeHash =
-        password_hash(
-            $code,
-            PASSWORD_DEFAULT
-        );
+    $expiresAt = date(
+        "Y-m-d H:i:s",
+        strtotime("+10 minutes")
+    );
 
-
-    $expiresAt =
-        date(
-            "Y-m-d H:i:s",
-            strtotime("+10 minutes")
-        );
-
-
-    $invalidate =
-        $conn->prepare("
-            UPDATE authentication_codes
-            SET used_at = NOW()
-            WHERE
-                user_id = ?
-                AND purpose = ?
-                AND used_at IS NULL
-        ");
-
+    $invalidate = $conn->prepare("
+        UPDATE authentication_codes
+        SET used_at = NOW()
+        WHERE
+            user_id = ?
+            AND purpose = ?
+            AND used_at IS NULL
+    ");
 
     if ($invalidate) {
 
@@ -71,39 +60,26 @@ function createAuthCode(
             $purpose
         );
 
-
         $invalidate->execute();
-
         $invalidate->close();
     }
 
-
-    $stmt =
-        $conn->prepare("
-            INSERT INTO authentication_codes
-            (
-                user_id,
-                code_hash,
-                purpose,
-                expires_at
-            )
-            VALUES
-            (
-                ?,
-                ?,
-                ?,
-                ?
-            )
-        ");
-
+    $stmt = $conn->prepare("
+        INSERT INTO authentication_codes
+        (
+            user_id,
+            code_hash,
+            purpose,
+            expires_at
+        )
+        VALUES (?, ?, ?, ?)
+    ");
 
     if (!$stmt) {
-
         throw new RuntimeException(
             "Unable to create authentication code."
         );
     }
-
 
     $stmt->bind_param(
         "isss",
@@ -113,20 +89,16 @@ function createAuthCode(
         $expiresAt
     );
 
-
     if (!$stmt->execute()) {
 
         $stmt->close();
-
 
         throw new RuntimeException(
             "Unable to create authentication code."
         );
     }
 
-
     $stmt->close();
-
 
     return $code;
 }
@@ -139,28 +111,24 @@ function verifyAuthCode(
     string $code
 ): bool {
 
-    $stmt =
-        $conn->prepare("
-            SELECT
-                id,
-                code_hash,
-                expires_at,
-                attempts
-            FROM authentication_codes
-            WHERE
-                user_id = ?
-                AND purpose = ?
-                AND used_at IS NULL
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-
+    $stmt = $conn->prepare("
+        SELECT
+            id,
+            code_hash,
+            expires_at,
+            attempts
+        FROM authentication_codes
+        WHERE
+            user_id = ?
+            AND purpose = ?
+            AND used_at IS NULL
+        ORDER BY id DESC
+        LIMIT 1
+    ");
 
     if (!$stmt) {
-
         return false;
     }
-
 
     $stmt->bind_param(
         "is",
@@ -168,42 +136,29 @@ function verifyAuthCode(
         $purpose
     );
 
-
     $stmt->execute();
 
-
-    $authCode =
-        $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+    $authCode = $stmt
+        ->get_result()
+        ->fetch_assoc();
 
     $stmt->close();
 
-
     if (!$authCode) {
-
         return false;
     }
-
 
     if (
-        strtotime(
-            $authCode["expires_at"]
-        ) < time()
+        strtotime($authCode["expires_at"]) < time()
     ) {
-
         return false;
     }
-
 
     if (
         (int) $authCode["attempts"] >= 5
     ) {
-
         return false;
     }
-
 
     if (
         !password_verify(
@@ -212,67 +167,54 @@ function verifyAuthCode(
         )
     ) {
 
-        $attempt =
-            $conn->prepare("
-                UPDATE authentication_codes
-                SET attempts = attempts + 1
-                WHERE id = ?
-            ");
-
+        $attempt = $conn->prepare("
+            UPDATE authentication_codes
+            SET attempts = attempts + 1
+            WHERE id = ?
+        ");
 
         if ($attempt) {
 
             $authenticationCodeId =
                 (int) $authCode["id"];
 
-
             $attempt->bind_param(
                 "i",
                 $authenticationCodeId
             );
 
-
             $attempt->execute();
-
             $attempt->close();
         }
-
 
         return false;
     }
 
-
-    $used =
-        $conn->prepare("
-            UPDATE authentication_codes
-            SET used_at = NOW()
-            WHERE id = ?
-        ");
-
+    $used = $conn->prepare("
+        UPDATE authentication_codes
+        SET used_at = NOW()
+        WHERE id = ?
+    ");
 
     if ($used) {
 
         $authenticationCodeId =
             (int) $authCode["id"];
 
-
         $used->bind_param(
             "i",
             $authenticationCodeId
         );
 
-
         $used->execute();
-
         $used->close();
     }
-
 
     return true;
 }
 
 
-/* SEND CODE */
+/* SEND CODE - LOCAL DEVELOPMENT */
 
 function sendAuthCode(
     string $email,
@@ -280,74 +222,48 @@ function sendAuthCode(
     string $purpose
 ): bool {
 
-    if ($purpose === "registration") {
+    /*
+       DEVELOPMENT OTP
 
-        $subject =
-            "CVSWHO Email Verification Code";
+       Uses the existing OTP system without SMTP.
+       Only permitted when accessed locally.
 
+       No changes to OTP generation, database
+       validation, or verification are required.
+    */
 
-        $message =
-            "Your CVSWHO verification code is: " .
-            $code .
-            "\n\nThis code will expire in 10 minutes.";
+    $localAddresses = [
+        "127.0.0.1",
+        "::1"
+    ];
 
-    } elseif (
-        $purpose === "reactivation"
+    $clientAddress =
+        $_SERVER["REMOTE_ADDR"] ?? "";
+
+    if (
+        !in_array(
+            $clientAddress,
+            $localAddresses,
+            true
+        )
     ) {
-
-        $subject =
-            "CVSWHO Account Reactivation Code";
-
-
-        $message =
-            "Your CVSWHO account reactivation code is: " .
-            $code .
-            "\n\nThis code will expire in 10 minutes.";
-
-    } elseif (
-        $purpose === "password_reset"
-    ) {
-
-        $subject =
-            "CVSWHO Password Reset Code";
-
-
-        $message =
-            "Your CVSWHO password reset code is: " .
-            $code .
-            "\n\nThis code will expire in 10 minutes.";
-
-    } else {
-
-        $subject =
-            "CVSWHO Login Verification Code";
-
-
-        $message =
-            "Your CVSWHO login verification code is: " .
-            $code .
-            "\n\nThis code will expire in 10 minutes.";
+        return false;
     }
 
+    if (
+        session_status() !== PHP_SESSION_ACTIVE
+    ) {
+        return false;
+    }
 
-    $headers =
-        "From: CVSWHO <no-reply@cvsu.edu.ph>\r\n";
+    // Store OTP for the existing verification page
+    $_SESSION["dev_auth_code"] = $code;
 
+    // Associate the OTP with its intended purpose
+    $_SESSION["dev_auth_purpose"] = $purpose;
 
-    $headers .=
-        "Reply-To: no-reply@cvsu.edu.ph\r\n";
-
-
-    $headers .=
-        "Content-Type: text/plain; charset=UTF-8\r\n";
-
-
-    return mail(
-        $email,
-        $subject,
-        $message,
-        $headers
-    );
+    // No SMTP connection is required
+    return true;
 }
 
 
@@ -360,13 +276,9 @@ function getSessionRole(): string
         ?? $_SESSION["role"]
         ?? "";
 
-
-    return
-        strtolower(
-            trim(
-                (string) $role
-            )
-        );
+    return strtolower(
+        trim((string) $role)
+    );
 }
 
 
@@ -380,63 +292,45 @@ function requireLogin(
         !isset($_SESSION["user_id"])
     ) {
 
-        header(
-            "Location: login.php"
-        );
-
+        header("Location: login.php");
         exit;
     }
 
-
     if ($conn === null) {
-
         return;
     }
-
 
     $userId =
         (int) $_SESSION["user_id"];
 
-
-    $stmt =
-        $conn->prepare("
-            SELECT
-                id,
-                email,
-                role,
-                account_status,
-                email_verified
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-        ");
-
+    $stmt = $conn->prepare("
+        SELECT
+            id,
+            email,
+            role,
+            account_status,
+            email_verified
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+    ");
 
     if (!$stmt) {
-
-        logoutUser(
-            "login.php"
-        );
+        logoutUser("login.php");
     }
-
 
     $stmt->bind_param(
         "i",
         $userId
     );
 
-
     $stmt->execute();
 
-
-    $user =
-        $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+    $user = $stmt
+        ->get_result()
+        ->fetch_assoc();
 
     $stmt->close();
-
 
     if (
         !$user ||
@@ -444,19 +338,14 @@ function requireLogin(
         (int) $user["email_verified"] !== 1
     ) {
 
-        logoutUser(
-            "login.php"
-        );
+        logoutUser("login.php");
     }
-
 
     $_SESSION["user_role"] =
         $user["role"];
 
-
     $_SESSION["role"] =
         $user["role"];
-
 
     $_SESSION["user_email"] =
         $user["email"];
@@ -473,101 +362,70 @@ function requireAdmin(
         !isset($_SESSION["user_id"])
     ) {
 
-        header(
-            "Location: login.php"
-        );
-
+        header("Location: login.php");
         exit;
     }
-
 
     if ($conn === null) {
 
         if (
-            getSessionRole()
-            !== "administrator"
+            getSessionRole() !== "administrator"
         ) {
 
-            header(
-                "Location: login.php"
-            );
-
+            header("Location: login.php");
             exit;
         }
-
 
         return;
     }
 
-
     $userId =
         (int) $_SESSION["user_id"];
 
-
-    $stmt =
-        $conn->prepare("
-            SELECT
-                id,
-                email,
-                role,
-                account_status,
-                email_verified
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-        ");
-
+    $stmt = $conn->prepare("
+        SELECT
+            id,
+            email,
+            role,
+            account_status,
+            email_verified
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+    ");
 
     if (!$stmt) {
-
-        logoutUser(
-            "login.php"
-        );
+        logoutUser("login.php");
     }
-
 
     $stmt->bind_param(
         "i",
         $userId
     );
 
-
     $stmt->execute();
 
-
-    $administrator =
-        $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+    $administrator = $stmt
+        ->get_result()
+        ->fetch_assoc();
 
     $stmt->close();
 
-
     if (
         !$administrator ||
-        $administrator["role"]
-            !== "administrator" ||
-        $administrator["account_status"]
-            !== "active" ||
-        (int) $administrator[
-            "email_verified"
-        ] !== 1
+        $administrator["role"] !== "administrator" ||
+        $administrator["account_status"] !== "active" ||
+        (int) $administrator["email_verified"] !== 1
     ) {
 
-        logoutUser(
-            "login.php"
-        );
+        logoutUser("login.php");
     }
-
 
     $_SESSION["user_role"] =
         "administrator";
 
-
     $_SESSION["role"] =
         "administrator";
-
 
     $_SESSION["user_email"] =
         $administrator["email"];
@@ -582,16 +440,12 @@ function logoutUser(
 
     $_SESSION = [];
 
-
     if (
-        ini_get(
-            "session.use_cookies"
-        )
+        ini_get("session.use_cookies")
     ) {
 
         $params =
             session_get_cookie_params();
-
 
         setcookie(
             session_name(),
@@ -604,15 +458,11 @@ function logoutUser(
         );
     }
 
-
     session_destroy();
 
-
     header(
-        "Location: " .
-        $redirect
+        "Location: " . $redirect
     );
-
 
     exit;
 }
