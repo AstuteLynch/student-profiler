@@ -5,28 +5,25 @@ session_start();
 require_once "db.php";
 require_once "auth_functions.php";
 
+
 /* PENDING AUTH */
 
 if (
     !isset(
-        $_SESSION[
-            "pending_auth_user_id"
-        ]
+        $_SESSION["pending_auth_user_id"]
     ) ||
     !isset(
-        $_SESSION[
-            "pending_auth_purpose"
-        ]
+        $_SESSION["pending_auth_purpose"]
     ) ||
     !isset(
-        $_SESSION[
-            "pending_auth_email"
-        ]
+        $_SESSION["pending_auth_email"]
     )
 ) {
+
     header(
         "Location: login.php"
     );
+
 
     exit;
 }
@@ -50,19 +47,8 @@ $email =
     ];
 
 
-$role =
-    $_SESSION[
-        "pending_auth_role"
-    ] ?? "student";
-
-
-$devAuthCode =
-    $_SESSION[
-        "dev_auth_code"
-    ] ?? "";
-
-
 $error = "";
+
 $success = "";
 
 
@@ -92,9 +78,6 @@ if (
         ],
         $_SESSION[
             "pending_auth_role"
-        ],
-        $_SESSION[
-            "dev_auth_code"
         ]
     );
 
@@ -108,11 +91,10 @@ if (
 }
 
 
-/* VERIFY */
+/* VERIFY OTP */
 
 if (
-    $_SERVER["REQUEST_METHOD"]
-        === "POST" &&
+    $_SERVER["REQUEST_METHOD"] === "POST" &&
     isset(
         $_POST["verify_code"]
     )
@@ -166,8 +148,11 @@ if (
                         role,
                         account_status,
                         email_verified
+
                     FROM users
+
                     WHERE id = ?
+
                     LIMIT 1
                 ");
 
@@ -211,9 +196,11 @@ if (
                     $update =
                         $conn->prepare("
                             UPDATE users
+
                             SET
                                 email_verified = 1,
                                 account_status = 'active'
+
                             WHERE
                                 id = ?
                                 AND role = 'student'
@@ -247,20 +234,28 @@ if (
                             );
 
 
-                            $_SESSION["user_id"] =
+                            $_SESSION[
+                                "user_id"
+                            ] =
                                 $userId;
 
 
-                            $_SESSION["user_role"] =
+                            $_SESSION[
+                                "user_role"
+                            ] =
                                 "student";
 
 
-                            $_SESSION["role"] =
+                            $_SESSION[
+                                "role"
+                            ] =
                                 "student";
 
 
-                            $_SESSION["user_email"] =
-                                $email;
+                            $_SESSION[
+                                "user_email"
+                            ] =
+                                $user["email"];
 
 
                             unset(
@@ -275,9 +270,6 @@ if (
                                 ],
                                 $_SESSION[
                                     "pending_auth_role"
-                                ],
-                                $_SESSION[
-                                    "dev_auth_code"
                                 ]
                             );
 
@@ -300,7 +292,8 @@ if (
         /* LOGIN */
 
         } elseif (
-            $purpose === "login"
+            $purpose ===
+            "login"
         ) {
 
             $stmt =
@@ -311,8 +304,11 @@ if (
                         role,
                         account_status,
                         email_verified
+
                     FROM users
+
                     WHERE id = ?
+
                     LIMIT 1
                 ");
 
@@ -381,24 +377,62 @@ if (
 
                 } else {
 
+
+                    /* UPDATE LAST LOGIN */
+
+                    $loginUpdate =
+                        $conn->prepare("
+                            UPDATE users
+
+                            SET
+                                last_login_at = NOW()
+
+                            WHERE id = ?
+
+                            LIMIT 1
+                        ");
+
+
+                    if ($loginUpdate) {
+
+                        $loginUpdate->bind_param(
+                            "i",
+                            $userId
+                        );
+
+
+                        $loginUpdate->execute();
+
+                        $loginUpdate->close();
+                    }
+
+
                     session_regenerate_id(
                         true
                     );
 
 
-                    $_SESSION["user_id"] =
+                    $_SESSION[
+                        "user_id"
+                    ] =
                         (int) $user["id"];
 
 
-                    $_SESSION["user_role"] =
+                    $_SESSION[
+                        "user_role"
+                    ] =
                         $user["role"];
 
 
-                    $_SESSION["role"] =
+                    $_SESSION[
+                        "role"
+                    ] =
                         $user["role"];
 
 
-                    $_SESSION["user_email"] =
+                    $_SESSION[
+                        "user_email"
+                    ] =
                         $user["email"];
 
 
@@ -414,16 +448,13 @@ if (
                         ],
                         $_SESSION[
                             "pending_auth_role"
-                        ],
-                        $_SESSION[
-                            "dev_auth_code"
                         ]
                     );
 
 
                     if (
-                        $user["role"]
-                        === "administrator"
+                        $user["role"] ===
+                        "administrator"
                     ) {
 
                         header(
@@ -446,7 +477,8 @@ if (
         /* PASSWORD RESET */
 
         } elseif (
-            $purpose === "password_reset"
+            $purpose ===
+            "password_reset"
         ) {
 
             $stmt =
@@ -457,8 +489,11 @@ if (
                         role,
                         account_status,
                         email_verified
+
                     FROM users
+
                     WHERE id = ?
+
                     LIMIT 1
                 ");
 
@@ -500,7 +535,9 @@ if (
 
                 } elseif (
                     in_array(
-                        $user["account_status"],
+                        $user[
+                            "account_status"
+                        ],
                         [
                             "archived",
                             "suspended",
@@ -550,9 +587,6 @@ if (
                         ],
                         $_SESSION[
                             "pending_auth_role"
-                        ],
-                        $_SESSION[
-                            "dev_auth_code"
                         ]
                     );
 
@@ -570,11 +604,10 @@ if (
 }
 
 
-/* GENERATE NEW CODE */
+/* RESEND OTP */
 
 if (
-    $_SERVER["REQUEST_METHOD"]
-        === "POST" &&
+    $_SERVER["REQUEST_METHOD"] === "POST" &&
     isset(
         $_POST["resend_code"]
     )
@@ -588,8 +621,11 @@ if (
                 role,
                 account_status,
                 email_verified
+
             FROM users
+
             WHERE id = ?
+
             LIMIT 1
         ");
 
@@ -675,41 +711,48 @@ if (
 
         } else {
 
-            $code =
-                createAuthCode(
-                    $conn,
-                    $userId,
-                    $purpose
-                );
+            try {
+
+                $code =
+                    createAuthCode(
+                        $conn,
+                        $userId,
+                        $purpose
+                    );
 
 
-            sendAuthCode(
-                $email,
-                $code,
-                $purpose
-            );
+                $emailSent =
+                    sendAuthCode(
+                        $account["email"],
+                        $code,
+                        $purpose
+                    );
 
 
-            /* DEVELOPMENT ONLY */
+                if (!$emailSent) {
 
-            $_SESSION[
-                "dev_auth_code"
-            ] =
-                $code;
-
-
-            $devAuthCode =
-                $code;
+                    throw new RuntimeException(
+                        "Unable to send email."
+                    );
+                }
 
 
-            $success =
-                "A new verification code has been generated.";
+                $success =
+                    "A new verification code has been sent to your email address.";
+
+            } catch (
+                Throwable $exception
+            ) {
+
+                $error =
+                    "Unable to send a new verification code. Please try again.";
+            }
         }
     }
 }
 
 
-/* DISPLAY */
+/* PAGE TEXT */
 
 if (
     $purpose ===
@@ -721,7 +764,7 @@ if (
 
 
     $pageDescription =
-        "Enter the verification code generated for your account.";
+        "Enter the verification code sent to your CvSU email address.";
 
 
     $buttonText =
@@ -737,7 +780,7 @@ if (
 
 
     $pageDescription =
-        "Enter the verification code generated for your password reset request.";
+        "Enter the verification code sent to your email address.";
 
 
     $buttonText =
@@ -750,16 +793,17 @@ if (
 
 
     $pageDescription =
-        "Enter the verification code generated for your account.";
+        "Enter the verification code sent to your email address.";
 
 
     $buttonText =
-        "Verify";
+        "Verify Login";
 }
 
 ?>
 
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -775,15 +819,18 @@ if (
         Verification | CVSWHO
     </title>
 
+
     <link
         rel="stylesheet"
         href="auth.css"
     >
 
+
     <link
         rel="preconnect"
         href="https://fonts.googleapis.com"
     >
+
 
     <link
         rel="preconnect"
@@ -791,77 +838,22 @@ if (
         crossorigin
     >
 
+
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
         rel="stylesheet"
     >
 
-    <style>
-
-        .development-code {
-            margin: 22px 0;
-            padding: 16px 18px;
-
-            text-align: center;
-
-            background:
-                #eff8f3;
-
-            border:
-                1px solid #cbe5d7;
-
-            border-radius: 10px;
-        }
-
-        .development-code span {
-            display: block;
-
-            margin-bottom: 8px;
-
-            color:
-                #68766f;
-
-            font-size: 9px;
-            font-weight: 700;
-
-            letter-spacing: .7px;
-
-            text-transform: uppercase;
-        }
-
-        .development-code strong {
-            display: block;
-
-            color:
-                #006b3f;
-
-            font-size: 27px;
-            font-weight: 800;
-
-            letter-spacing: 8px;
-        }
-
-        .development-code small {
-            display: block;
-
-            margin-top: 8px;
-
-            color:
-                #68766f;
-
-            font-size: 8px;
-            line-height: 1.5;
-        }
-
-    </style>
-
 </head>
 
 <body>
 
+
 <main class="auth-page">
 
+
     <div class="verification-card">
+
 
         <div class="verification-brand">
 
@@ -874,11 +866,13 @@ if (
                     C
                 </div>
 
+
                 <div class="brand-text">
 
                     <span class="brand-name">
                         CVSWHO
                     </span>
+
 
                     <span class="brand-subtitle">
                         Account Verification
@@ -893,13 +887,16 @@ if (
 
         <div class="verification-content">
 
+
             <div class="verification-icon">
                 ✓
             </div>
 
+
             <span class="verification-label">
                 ACCOUNT VERIFICATION
             </span>
+
 
             <h1>
 
@@ -909,6 +906,7 @@ if (
 
             </h1>
 
+
             <p class="verification-description">
 
                 <?= htmlspecialchars(
@@ -916,51 +914,6 @@ if (
                 ) ?>
 
             </p>
-
-
-            <?php if (
-                $devAuthCode !== ""
-            ): ?>
-
-                <div class="development-code">
-
-                    <span>
-                        Development Verification Code
-                    </span>
-
-                    <strong>
-
-                        <?= htmlspecialchars(
-                            $devAuthCode
-                        ) ?>
-
-                    </strong>
-
-                    <small>
-                        Local testing only. This will be removed when PHPMailer email delivery is enabled.
-                    </small>
-
-                </div>
-
-            <?php else: ?>
-
-                <div class="development-code">
-
-                    <span>
-                        Development Verification Code
-                    </span>
-
-                    <strong>
-                        ------
-                    </strong>
-
-                    <small>
-                        No development code exists in this session.
-                    </small>
-
-                </div>
-
-            <?php endif; ?>
 
 
             <?php if (
@@ -998,6 +951,7 @@ if (
                 action="auth.php"
             >
 
+
                 <div class="input-group">
 
                     <label
@@ -1005,6 +959,7 @@ if (
                     >
                         Verification Code
                     </label>
+
 
                     <input
                         type="text"
@@ -1038,6 +993,7 @@ if (
 
                 </button>
 
+
             </form>
 
 
@@ -1052,7 +1008,7 @@ if (
                     name="resend_code"
                     class="resend-button"
                 >
-                    Generate New Code
+                    Send New Code
                 </button>
 
             </form>
@@ -1072,11 +1028,15 @@ if (
 
             </p>
 
+
         </div>
+
 
     </div>
 
+
 </main>
+
 
 </body>
 

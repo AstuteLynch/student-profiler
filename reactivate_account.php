@@ -7,87 +7,8 @@ require_once "auth_functions.php";
 
 
 $error = "";
+
 $success = "";
-
-
-/* ALREADY LOGGED IN */
-
-if (
-    isset(
-        $_SESSION["user_id"]
-    )
-) {
-
-    $loggedInUserId =
-        (int) $_SESSION["user_id"];
-
-
-    $stmt =
-        $conn->prepare("
-            SELECT
-                role,
-                account_status,
-                email_verified
-
-            FROM users
-
-            WHERE id = ?
-
-            LIMIT 1
-        ");
-
-
-    if ($stmt) {
-
-        $stmt->bind_param(
-            "i",
-            $loggedInUserId
-        );
-
-
-        $stmt->execute();
-
-
-        $loggedInUser =
-            $stmt
-                ->get_result()
-                ->fetch_assoc();
-
-
-        $stmt->close();
-
-
-        if (
-            $loggedInUser &&
-            $loggedInUser[
-                "account_status"
-            ] === "active" &&
-            (int) $loggedInUser[
-                "email_verified"
-            ] === 1
-        ) {
-
-            if (
-                $loggedInUser["role"]
-                === "administrator"
-            ) {
-
-                header(
-                    "Location: admin_dashboard.php"
-                );
-
-            } else {
-
-                header(
-                    "Location: student_dashboard.php"
-                );
-            }
-
-
-            exit;
-        }
-    }
-}
 
 
 /* REACTIVATION SESSION */
@@ -108,6 +29,7 @@ if (
     header(
         "Location: login.php"
     );
+
 
     exit;
 }
@@ -153,7 +75,10 @@ $stmt =
 if (!$stmt) {
 
     $error =
-        "Unable to load the account.";
+        "Unable to load your account.";
+
+    $user =
+        null;
 
 } else {
 
@@ -177,12 +102,9 @@ if (!$stmt) {
 }
 
 
-/* INVALID ACCOUNT */
+/* INVALID */
 
-if (
-    !isset($user) ||
-    !$user
-) {
+if (!$user) {
 
     unset(
         $_SESSION[
@@ -192,10 +114,7 @@ if (
             "reactivation_email"
         ],
         $_SESSION[
-            "reactivation_code_sent_user_id"
-        ],
-        $_SESSION[
-            "dev_auth_code"
+            "reactivation_code_sent"
         ]
     );
 
@@ -203,6 +122,7 @@ if (
     header(
         "Location: login.php"
     );
+
 
     exit;
 }
@@ -211,8 +131,9 @@ if (
 /* ALREADY ACTIVE */
 
 if (
-    $user["account_status"]
-    === "active"
+    $user[
+        "account_status"
+    ] === "active"
 ) {
 
     unset(
@@ -223,10 +144,7 @@ if (
             "reactivation_email"
         ],
         $_SESSION[
-            "reactivation_code_sent_user_id"
-        ],
-        $_SESSION[
-            "dev_auth_code"
+            "reactivation_code_sent"
         ]
     );
 
@@ -235,6 +153,7 @@ if (
         "Location: login.php"
     );
 
+
     exit;
 }
 
@@ -242,8 +161,9 @@ if (
 /* ONLY DEACTIVATED */
 
 if (
-    $user["account_status"]
-    !== "deactivated"
+    $user[
+        "account_status"
+    ] !== "deactivated"
 ) {
 
     $error =
@@ -251,7 +171,7 @@ if (
 }
 
 
-/* VERIFIED ACCOUNT */
+/* VERIFIED EMAIL REQUIRED */
 
 if (
     (int) $user[
@@ -264,19 +184,14 @@ if (
 }
 
 
-/* SEND FIRST CODE */
+/* SEND INITIAL OTP */
 
 if (
     $error === "" &&
-    (
-        !isset(
-            $_SESSION[
-                "reactivation_code_sent_user_id"
-            ]
-        ) ||
-        (int) $_SESSION[
-            "reactivation_code_sent_user_id"
-        ] !== $userId
+    !isset(
+        $_SESSION[
+            "reactivation_code_sent"
+        ]
     )
 ) {
 
@@ -290,53 +205,45 @@ if (
             );
 
 
-        /*
-            Email delivery may fail locally
-            before PHPMailer is configured.
-        */
+        $emailSent =
+            sendAuthCode(
+                $user["email"],
+                $code,
+                "reactivation"
+            );
 
-        sendAuthCode(
-            $user["email"],
-            $code,
-            "reactivation"
-        );
+
+        if (!$emailSent) {
+
+            throw new RuntimeException(
+                "Unable to send reactivation email."
+            );
+        }
 
 
         $_SESSION[
-            "reactivation_code_sent_user_id"
+            "reactivation_code_sent"
         ] =
-            $userId;
-
-
-        /*
-            DEVELOPMENT ONLY
-
-            Remove this when PHPMailer
-            is fully configured.
-        */
-
-        $_SESSION[
-            "dev_auth_code"
-        ] =
-            $code;
+            true;
 
 
         $success =
-            "A reactivation verification code has been generated.";
+            "A verification code has been sent to your email address.";
 
-    } catch (Throwable $exception) {
+    } catch (
+        Throwable $exception
+    ) {
 
         $error =
-            "Unable to generate the reactivation code.";
+            "Unable to send the account reactivation code.";
     }
 }
 
 
-/* VERIFY CODE */
+/* VERIFY */
 
 if (
-    $_SERVER["REQUEST_METHOD"]
-        === "POST" &&
+    $_SERVER["REQUEST_METHOD"] === "POST" &&
     isset(
         $_POST["verify_code"]
     )
@@ -373,8 +280,6 @@ if (
             "The verification code is incorrect, expired, or has reached the maximum number of attempts.";
 
     } else {
-
-        /* REACTIVATE ACCOUNT */
 
         $update =
             $conn->prepare("
@@ -424,13 +329,6 @@ if (
                 $update->close();
 
 
-                /*
-                    Since the user already entered
-                    the correct password in login.php
-                    before arriving here and has now
-                    passed OTP verification, log them in.
-                */
-
                 session_regenerate_id(
                     true
                 );
@@ -468,10 +366,7 @@ if (
                         "reactivation_email"
                     ],
                     $_SESSION[
-                        "reactivation_code_sent_user_id"
-                    ],
-                    $_SESSION[
-                        "dev_auth_code"
+                        "reactivation_code_sent"
                     ]
                 );
 
@@ -498,8 +393,7 @@ if (
 
 
             if (
-                isset($update) &&
-                $update instanceof mysqli_stmt
+                isset($update)
             ) {
 
                 $update->close();
@@ -509,11 +403,10 @@ if (
 }
 
 
-/* RESEND CODE */
+/* RESEND */
 
 if (
-    $_SERVER["REQUEST_METHOD"]
-        === "POST" &&
+    $_SERVER["REQUEST_METHOD"] === "POST" &&
     isset(
         $_POST["resend_code"]
     )
@@ -529,45 +422,43 @@ if (
             );
 
 
-        sendAuthCode(
-            $user["email"],
-            $code,
-            "reactivation"
-        );
+        $emailSent =
+            sendAuthCode(
+                $user["email"],
+                $code,
+                "reactivation"
+            );
+
+
+        if (!$emailSent) {
+
+            throw new RuntimeException(
+                "Unable to send reactivation email."
+            );
+        }
 
 
         $_SESSION[
-            "dev_auth_code"
+            "reactivation_code_sent"
         ] =
-            $code;
-
-
-        $_SESSION[
-            "reactivation_code_sent_user_id"
-        ] =
-            $userId;
+            true;
 
 
         $success =
-            "A new reactivation verification code has been generated.";
+            "A new verification code has been sent to your email address.";
 
-
-        $error = "";
-
-    } catch (Throwable $exception) {
 
         $error =
-            "Unable to generate a new verification code.";
+            "";
+
+    } catch (
+        Throwable $exception
+    ) {
+
+        $error =
+            "Unable to send a new verification code.";
     }
 }
-
-
-/* DEVELOPMENT CODE */
-
-$devAuthCode =
-    $_SESSION[
-        "dev_auth_code"
-    ] ?? "";
 
 ?>
 
@@ -608,8 +499,6 @@ $devAuthCode =
     >
 
 
-    <!-- SAME DESIGN AS LOGIN -->
-
     <link
         rel="stylesheet"
         href="login.css"
@@ -640,98 +529,8 @@ $devAuthCode =
         }
 
 
-        .development-code {
-            width: 100%;
-
-            margin-bottom: 20px;
-
-            padding:
-                15px 17px;
-
-            text-align: center;
-
-            background:
-                #eff8f3;
-
-            border:
-                1px solid
-                #cbe5d7;
-
-            border-radius: 9px;
-        }
-
-
-        .development-code span {
-            display: block;
-
-            margin-bottom: 7px;
-
-            color: #68766f;
-
-            font-size: 9px;
-
-            font-weight: 700;
-
-            letter-spacing: .6px;
-
-            text-transform:
-                uppercase;
-        }
-
-
-        .development-code strong {
-            display: block;
-
-            color: #006b3f;
-
-            font-size: 25px;
-
-            font-weight: 800;
-
-            letter-spacing: 7px;
-        }
-
-
-        .development-code small {
-            display: block;
-
-            margin-top: 7px;
-
-            color: #68766f;
-
-            font-size: 8px;
-
-            line-height: 1.5;
-        }
-
-
-        .alert-success {
-            width: 100%;
-
-            margin-bottom: 20px;
-
-            padding:
-                12px 14px;
-
-            color: #18794e;
-
-            background: #eaf7ef;
-
-            border:
-                1px solid
-                #cee8d9;
-
-            border-radius: 9px;
-
-            font-size: 10px;
-
-            line-height: 1.5;
-        }
-
-
         .otp-input {
             width: 100%;
-
             height: 52px;
 
             padding:
@@ -753,7 +552,6 @@ $devAuthCode =
                 sans-serif;
 
             font-size: 18px;
-
             font-weight: 700;
 
             letter-spacing: 8px;
@@ -805,7 +603,6 @@ $devAuthCode =
                 sans-serif;
 
             font-size: 10px;
-
             font-weight: 700;
 
             cursor: pointer;
@@ -830,8 +627,26 @@ $devAuthCode =
         }
 
 
-        .account-email strong {
-            color: #1d2b24;
+        .reactivation-success {
+            width: 100%;
+
+            margin-bottom: 20px;
+
+            padding:
+                12px 14px;
+
+            color: #18794e;
+
+            background: #eaf7ef;
+
+            border:
+                1px solid #cee8d9;
+
+            border-radius: 9px;
+
+            font-size: 10px;
+
+            line-height: 1.5;
         }
 
     </style>
@@ -866,6 +681,7 @@ $devAuthCode =
                     <span class="brand-name">
                         CVSWHO
                     </span>
+
 
                     <span class="brand-subtitle">
                         Student Profile Management
@@ -903,52 +719,18 @@ $devAuthCode =
                 <p>
                     Your CVSWHO account is currently
                     deactivated. Enter the verification
-                    code to restore access to your account.
+                    code sent to your registered email
+                    to restore access.
                 </p>
 
             </div>
 
 
-            <!-- DEVELOPMENT OTP -->
-
-            <?php if (
-                $devAuthCode !== ""
-            ): ?>
-
-                <div class="development-code">
-
-                    <span>
-                        Development Verification Code
-                    </span>
-
-
-                    <strong>
-
-                        <?= htmlspecialchars(
-                            $devAuthCode
-                        ) ?>
-
-                    </strong>
-
-
-                    <small>
-                        For local testing only.
-                        Remove this when PHPMailer
-                        email delivery is enabled.
-                    </small>
-
-                </div>
-
-            <?php endif; ?>
-
-
-            <!-- SUCCESS -->
-
             <?php if (
                 $success !== ""
             ): ?>
 
-                <div class="alert-success">
+                <div class="reactivation-success">
 
                     <?= htmlspecialchars(
                         $success
@@ -958,8 +740,6 @@ $devAuthCode =
 
             <?php endif; ?>
 
-
-            <!-- ERROR -->
 
             <?php if (
                 $error !== ""
@@ -985,89 +765,79 @@ $devAuthCode =
             <?php endif; ?>
 
 
-            <!-- VERIFICATION FORM -->
-
-            <?php if (
-                $error === "" ||
-                $user[
-                    "account_status"
-                ] === "deactivated"
-            ): ?>
-
-                <form
-                    method="POST"
-                    action="reactivate_account.php"
-                    class="auth-form"
-                >
+            <form
+                method="POST"
+                action="reactivate_account.php"
+                class="auth-form"
+            >
 
 
-                    <div class="form-group">
+                <div class="form-group">
 
-                        <label
-                            for="verification_code"
-                        >
-                            Verification Code
-                        </label>
-
-
-                        <input
-                            type="text"
-                            id="verification_code"
-                            name="verification_code"
-                            class="otp-input"
-                            placeholder="000000"
-                            maxlength="6"
-                            minlength="6"
-                            inputmode="numeric"
-                            autocomplete="one-time-code"
-                            pattern="[0-9]{6}"
-                            required
-                        >
-
-                        <span class="input-help">
-                            Enter the 6-digit code generated
-                            for your account reactivation.
-                        </span>
-
-                    </div>
+                    <label
+                        for="verification_code"
+                    >
+                        Verification Code
+                    </label>
 
 
-                    <button
-                        type="submit"
-                        name="verify_code"
-                        class="auth-button"
+                    <input
+                        type="text"
+                        id="verification_code"
+                        name="verification_code"
+                        class="otp-input"
+                        placeholder="000000"
+                        maxlength="6"
+                        minlength="6"
+                        inputmode="numeric"
+                        autocomplete="one-time-code"
+                        pattern="[0-9]{6}"
+                        required
                     >
 
-                        Reactivate Account
 
-                        <span class="button-arrow">
-                            →
-                        </span>
+                    <span class="input-help">
+                        Enter the 6-digit verification
+                        code sent to your email.
+                        The code expires after 10 minutes.
+                    </span>
 
-                    </button>
-
-                </form>
+                </div>
 
 
-                <!-- RESEND -->
-
-                <form
-                    method="POST"
-                    action="reactivate_account.php"
-                    class="resend-form"
+                <button
+                    type="submit"
+                    name="verify_code"
+                    class="auth-button"
                 >
 
-                    <button
-                        type="submit"
-                        name="resend_code"
-                        class="resend-button"
-                    >
-                        Generate New Code
-                    </button>
+                    Reactivate Account
 
-                </form>
+                    <span class="button-arrow">
+                        →
+                    </span>
 
-            <?php endif; ?>
+                </button>
+
+
+            </form>
+
+
+            <form
+                method="POST"
+                action="reactivate_account.php"
+                class="resend-form"
+            >
+
+                <button
+                    type="submit"
+                    name="resend_code"
+                    class="resend-button"
+                >
+                    Send New Code
+                </button>
+
+            </form>
 
 
             <p class="account-email">
@@ -1126,10 +896,9 @@ $devAuthCode =
 
 
                 <p>
-                    Your password was verified before
-                    this reactivation request and a
-                    temporary verification code is required
-                    before access is restored.
+                    Your password was already verified.
+                    A valid email verification code is
+                    required before account access is restored.
                 </p>
 
             </div>

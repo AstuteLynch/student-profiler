@@ -5,33 +5,98 @@ session_start();
 require_once "db.php";
 require_once "auth_functions.php";
 
+
 $error = "";
+
 
 /* ALREADY LOGGED IN */
 
-if (isset($_SESSION["user_id"])) {
-    $role = $_SESSION["user_role"] ?? $_SESSION["role"] ?? "student";
+if (
+    isset(
+        $_SESSION["user_id"]
+    )
+) {
 
-    if ($role === "administrator") {
-        header("Location: admin_dashboard.php");
+    $role =
+        $_SESSION["user_role"]
+        ??
+        $_SESSION["role"]
+        ??
+        "student";
+
+
+    if (
+        $role ===
+        "administrator"
+    ) {
+
+        header(
+            "Location: admin_dashboard.php"
+        );
+
     } else {
-        header("Location: student_dashboard.php");
+
+        header(
+            "Location: student_dashboard.php"
+        );
     }
+
 
     exit;
 }
 
+
 /* REGISTER */
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+if (
+    $_SERVER["REQUEST_METHOD"] === "POST"
+) {
 
-    $firstName = trim($_POST["first_name"] ?? "");
-    $middleName = trim($_POST["middle_name"] ?? "");
-    $lastName = trim($_POST["last_name"] ?? "");
-    $email = strtolower(trim($_POST["email"] ?? ""));
-    $password = $_POST["password"] ?? "";
-    $confirmPassword = $_POST["confirm_password"] ?? "";
-    $agreeTerms = isset($_POST["agree_terms"]);
+    $firstName =
+        trim(
+            $_POST["first_name"]
+            ?? ""
+        );
+
+
+    $middleName =
+        trim(
+            $_POST["middle_name"]
+            ?? ""
+        );
+
+
+    $lastName =
+        trim(
+            $_POST["last_name"]
+            ?? ""
+        );
+
+
+    $email =
+        strtolower(
+            trim(
+                $_POST["email"]
+                ?? ""
+            )
+        );
+
+
+    $password =
+        $_POST["password"]
+        ?? "";
+
+
+    $confirmPassword =
+        $_POST["confirm_password"]
+        ?? "";
+
+
+    $termsAccepted =
+        isset(
+            $_POST["accept_terms"]
+        );
+
 
     if (
         $firstName === "" ||
@@ -40,90 +105,146 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $password === "" ||
         $confirmPassword === ""
     ) {
-        $error = "Please fill in all required fields.";
 
-    } elseif (!isCvsuEmail($email)) {
+        $error =
+            "Please fill in all required fields.";
+
+    } elseif (
+        !isCvsuEmail(
+            $email
+        )
+    ) {
+
         $error =
             "Please use a CvSU student email in the format firstname.lastname@cvsu.edu.ph.";
 
-    } elseif (strlen($password) < 8) {
+    } elseif (
+        strlen(
+            $password
+        ) < 8
+    ) {
+
         $error =
             "Password must be at least 8 characters.";
 
-    } elseif (!preg_match('/[A-Z]/', $password)) {
+    } elseif (
+        !preg_match(
+            '/[A-Z]/',
+            $password
+        )
+    ) {
+
         $error =
             "Password must contain at least one uppercase letter.";
 
-    } elseif (!preg_match('/[a-z]/', $password)) {
+    } elseif (
+        !preg_match(
+            '/[a-z]/',
+            $password
+        )
+    ) {
+
         $error =
             "Password must contain at least one lowercase letter.";
 
-    } elseif (!preg_match('/[0-9]/', $password)) {
+    } elseif (
+        !preg_match(
+            '/[0-9]/',
+            $password
+        )
+    ) {
+
         $error =
             "Password must contain at least one number.";
 
-    } elseif ($password !== $confirmPassword) {
+    } elseif (
+        $password !==
+        $confirmPassword
+    ) {
+
         $error =
             "Passwords do not match.";
 
-    } elseif (!$agreeTerms) {
+    } elseif (
+        !$termsAccepted
+    ) {
+
         $error =
-            "You must read and agree to the Terms and Conditions before creating an account.";
+            "You must agree to the Terms and Conditions before creating your account.";
 
     } else {
 
-        $check = $conn->prepare("
-            SELECT
-                id,
-                email_verified,
-                role,
-                account_status
-            FROM users
-            WHERE email = ?
-            LIMIT 1
-        ");
+        $check =
+            $conn->prepare("
+                SELECT
+                    id,
+                    email_verified,
+                    role,
+                    account_status
+
+                FROM users
+
+                WHERE email = ?
+
+                LIMIT 1
+            ");
+
 
         if (!$check) {
+
             $error =
                 "Unable to check the email address.";
 
         } else {
+
             $check->bind_param(
                 "s",
                 $email
             );
 
+
             $check->execute();
+
 
             $existing =
                 $check
                     ->get_result()
                     ->fetch_assoc();
 
+
             $check->close();
+
 
             /* EXISTING VERIFIED ACCOUNT */
 
             if (
                 $existing &&
-                (int) $existing["email_verified"] === 1
+                (int) $existing[
+                    "email_verified"
+                ] === 1
             ) {
+
                 $error =
                     "This email is already registered. Please login instead.";
+
 
             /* EXISTING UNVERIFIED ACCOUNT */
 
             } elseif ($existing) {
 
                 if (
-                    ($existing["role"] ?? "") !== "student"
+                    ($existing["role"] ?? "")
+                    !== "student"
                 ) {
+
                     $error =
                         "This email cannot be registered as a student.";
 
                 } else {
+
                     $userId =
                         (int) $existing["id"];
+
 
                     $passwordHash =
                         password_hash(
@@ -131,58 +252,91 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             PASSWORD_DEFAULT
                         );
 
-                    $update = $conn->prepare("
-                        UPDATE users
-                        SET
-                            password_hash = ?,
-                            account_status = 'pending',
-                            email_verified = 0
-                        WHERE
-                            id = ?
-                            AND role = 'student'
-                    ");
+
+                    $update =
+                        $conn->prepare("
+                            UPDATE users
+
+                            SET
+                                password_hash = ?,
+                                account_status = 'pending',
+                                email_verified = 0
+
+                            WHERE
+                                id = ?
+                                AND role = 'student'
+                        ");
+
 
                     if (!$update) {
+
                         $error =
                             "Unable to update the account.";
 
                     } else {
+
                         $update->bind_param(
                             "si",
                             $passwordHash,
                             $userId
                         );
 
-                        if (!$update->execute()) {
+
+                        if (
+                            !$update->execute()
+                        ) {
+
                             $error =
                                 "Unable to update the account.";
                         }
 
+
                         $update->close();
                     }
 
-                    if ($error === "") {
 
-                        $profile = $conn->prepare("
-                            INSERT INTO student_profiles (
-                                user_id,
-                                first_name,
-                                middle_name,
-                                last_name
-                            )
-                            VALUES (?, ?, ?, ?)
+                    if (
+                        $error === ""
+                    ) {
 
-                            ON DUPLICATE KEY UPDATE
-                                first_name = VALUES(first_name),
-                                middle_name = VALUES(middle_name),
-                                last_name = VALUES(last_name)
-                        ");
+                        $profile =
+                            $conn->prepare("
+                                INSERT INTO student_profiles
+                                (
+                                    user_id,
+                                    first_name,
+                                    middle_name,
+                                    last_name
+                                )
+
+                                VALUES
+                                (
+                                    ?,
+                                    ?,
+                                    ?,
+                                    ?
+                                )
+
+                                ON DUPLICATE KEY UPDATE
+
+                                    first_name =
+                                        VALUES(first_name),
+
+                                    middle_name =
+                                        VALUES(middle_name),
+
+                                    last_name =
+                                        VALUES(last_name)
+                            ");
+
 
                         if (!$profile) {
+
                             $error =
                                 "Unable to update the student profile.";
 
                         } else {
+
                             $profile->bind_param(
                                 "isss",
                                 $userId,
@@ -191,47 +345,92 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 $lastName
                             );
 
-                            if (!$profile->execute()) {
+
+                            if (
+                                !$profile->execute()
+                            ) {
+
                                 $error =
                                     "Unable to update the student profile.";
                             }
+
 
                             $profile->close();
                         }
                     }
 
-                    if ($error === "") {
 
-                        $code = createAuthCode(
-                            $conn,
-                            $userId,
-                            "registration"
-                        );
+                    if (
+                        $error === ""
+                    ) {
 
-                        /* DEVELOPMENT ONLY */
+                        try {
 
-                        $_SESSION["dev_auth_code"] =
-                            $code;
+                            $code =
+                                createAuthCode(
+                                    $conn,
+                                    $userId,
+                                    "registration"
+                                );
 
-                        $_SESSION["pending_auth_user_id"] =
-                            $userId;
 
-                        $_SESSION["pending_auth_purpose"] =
-                            "registration";
+                            $emailSent =
+                                sendAuthCode(
+                                    $email,
+                                    $code,
+                                    "registration"
+                                );
 
-                        $_SESSION["pending_auth_email"] =
-                            $email;
 
-                        $_SESSION["pending_auth_role"] =
-                            "student";
+                            if (!$emailSent) {
 
-                        header(
-                            "Location: auth.php"
-                        );
+                                throw new RuntimeException(
+                                    "Unable to send verification email."
+                                );
+                            }
 
-                        exit;
+
+                            $_SESSION[
+                                "pending_auth_user_id"
+                            ] =
+                                $userId;
+
+
+                            $_SESSION[
+                                "pending_auth_purpose"
+                            ] =
+                                "registration";
+
+
+                            $_SESSION[
+                                "pending_auth_email"
+                            ] =
+                                $email;
+
+
+                            $_SESSION[
+                                "pending_auth_role"
+                            ] =
+                                "student";
+
+
+                            header(
+                                "Location: auth.php"
+                            );
+
+
+                            exit;
+
+                        } catch (
+                            Throwable $exception
+                        ) {
+
+                            $error =
+                                "Your account was saved, but the verification email could not be sent. Please try again.";
+                        }
                     }
                 }
+
 
             /* NEW ACCOUNT */
 
@@ -243,63 +442,92 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         PASSWORD_DEFAULT
                     );
 
-                $stmt = $conn->prepare("
-                    INSERT INTO users (
-                        email,
-                        password_hash,
-                        role,
-                        account_status,
-                        email_verified
-                    )
-                    VALUES (
-                        ?,
-                        ?,
-                        'student',
-                        'pending',
-                        0
-                    )
-                ");
+
+                $stmt =
+                    $conn->prepare("
+                        INSERT INTO users
+                        (
+                            email,
+                            password_hash,
+                            role,
+                            account_status,
+                            email_verified
+                        )
+
+                        VALUES
+                        (
+                            ?,
+                            ?,
+                            'student',
+                            'pending',
+                            0
+                        )
+                    ");
+
 
                 if (!$stmt) {
+
                     $error =
                         "We could not create your account.";
 
                 } else {
+
                     $stmt->bind_param(
                         "ss",
                         $email,
                         $passwordHash
                     );
 
-                    if (!$stmt->execute()) {
+
+                    if (
+                        !$stmt->execute()
+                    ) {
+
                         $error =
                             "We could not create your account. Please try again.";
 
                     } else {
+
                         $userId =
                             (int) $stmt->insert_id;
                     }
 
+
                     $stmt->close();
                 }
 
-                if ($error === "") {
 
-                    $profile = $conn->prepare("
-                        INSERT INTO student_profiles (
-                            user_id,
-                            first_name,
-                            middle_name,
-                            last_name
-                        )
-                        VALUES (?, ?, ?, ?)
-                    ");
+                if (
+                    $error === ""
+                ) {
+
+                    $profile =
+                        $conn->prepare("
+                            INSERT INTO student_profiles
+                            (
+                                user_id,
+                                first_name,
+                                middle_name,
+                                last_name
+                            )
+
+                            VALUES
+                            (
+                                ?,
+                                ?,
+                                ?,
+                                ?
+                            )
+                        ");
+
 
                     if (!$profile) {
+
                         $error =
                             "Unable to create the student profile.";
 
                     } else {
+
                         $profile->bind_param(
                             "isss",
                             $userId,
@@ -308,81 +536,141 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             $lastName
                         );
 
-                        if (!$profile->execute()) {
+
+                        if (
+                            !$profile->execute()
+                        ) {
+
                             $error =
                                 "Unable to create the student profile.";
                         }
+
 
                         $profile->close();
                     }
                 }
 
-                if ($error === "") {
+
+                if (
+                    $error === ""
+                ) {
 
                     $profileSettings =
                         $conn->prepare("
-                            INSERT INTO profile_settings (
+                            INSERT INTO profile_settings
+                            (
                                 user_id
                             )
-                            VALUES (?)
+
+                            VALUES
+                            (?)
                         ");
 
+
                     if ($profileSettings) {
+
                         $profileSettings->bind_param(
                             "i",
                             $userId
                         );
 
+
                         $profileSettings->execute();
+
                         $profileSettings->close();
                     }
 
+
                     $privacySettings =
                         $conn->prepare("
-                            INSERT INTO privacy_settings (
+                            INSERT INTO privacy_settings
+                            (
                                 user_id
                             )
-                            VALUES (?)
+
+                            VALUES
+                            (?)
                         ");
 
+
                     if ($privacySettings) {
+
                         $privacySettings->bind_param(
                             "i",
                             $userId
                         );
 
+
                         $privacySettings->execute();
+
                         $privacySettings->close();
                     }
 
-                    $code = createAuthCode(
-                        $conn,
-                        $userId,
-                        "registration"
-                    );
 
-                    /* DEVELOPMENT ONLY */
+                    try {
 
-                    $_SESSION["dev_auth_code"] =
-                        $code;
+                        $code =
+                            createAuthCode(
+                                $conn,
+                                $userId,
+                                "registration"
+                            );
 
-                    $_SESSION["pending_auth_user_id"] =
-                        $userId;
 
-                    $_SESSION["pending_auth_purpose"] =
-                        "registration";
+                        $emailSent =
+                            sendAuthCode(
+                                $email,
+                                $code,
+                                "registration"
+                            );
 
-                    $_SESSION["pending_auth_email"] =
-                        $email;
 
-                    $_SESSION["pending_auth_role"] =
-                        "student";
+                        if (!$emailSent) {
 
-                    header(
-                        "Location: auth.php"
-                    );
+                            throw new RuntimeException(
+                                "Unable to send verification email."
+                            );
+                        }
 
-                    exit;
+
+                        $_SESSION[
+                            "pending_auth_user_id"
+                        ] =
+                            $userId;
+
+
+                        $_SESSION[
+                            "pending_auth_purpose"
+                        ] =
+                            "registration";
+
+
+                        $_SESSION[
+                            "pending_auth_email"
+                        ] =
+                            $email;
+
+
+                        $_SESSION[
+                            "pending_auth_role"
+                        ] =
+                            "student";
+
+
+                        header(
+                            "Location: auth.php"
+                        );
+
+
+                        exit;
+
+                    } catch (
+                        Throwable $exception
+                    ) {
+
+                        $error =
+                            "Your account was created, but the verification email could not be sent. Please submit the form again to retry.";
+                    }
                 }
             }
         }
@@ -392,6 +680,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 ?>
 
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -407,10 +696,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         Register | CVSWHO
     </title>
 
+
     <link
         rel="preconnect"
         href="https://fonts.googleapis.com"
     >
+
 
     <link
         rel="preconnect"
@@ -418,23 +709,122 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         crossorigin
     >
 
+
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
         rel="stylesheet"
     >
+
 
     <link
         rel="stylesheet"
         href="register.css"
     >
 
+
+    <style>
+
+        .password-field {
+            position: relative;
+        }
+
+
+        .password-field input {
+            padding-right: 65px;
+        }
+
+
+        .password-toggle {
+            position: absolute;
+
+            top: 50%;
+            right: 12px;
+
+            transform:
+                translateY(-50%);
+
+            border: none;
+
+            background: transparent;
+
+            color:
+                var(
+                    --primary-green,
+                    #007a45
+                );
+
+            font-family:
+                "Inter",
+                sans-serif;
+
+            font-size: 10px;
+            font-weight: 700;
+
+            cursor: pointer;
+        }
+
+
+        .terms-row {
+            display: flex;
+
+            align-items: flex-start;
+
+            gap: 9px;
+
+            margin:
+                2px 0 20px;
+        }
+
+
+        .terms-row input {
+            width: 16px;
+            height: 16px;
+
+            margin-top: 2px;
+
+            accent-color:
+                var(
+                    --primary-green,
+                    #007a45
+                );
+        }
+
+
+        .terms-row label {
+            color:
+                var(
+                    --text-muted,
+                    #71837b
+                );
+
+            font-size: 10px;
+
+            line-height: 1.6;
+        }
+
+
+        .terms-row a {
+            color:
+                var(
+                    --primary-green,
+                    #007a45
+                );
+
+            font-weight: 700;
+        }
+
+    </style>
+
 </head>
 
 <body>
 
+
 <div class="page-wrapper">
 
+
     <div class="auth-container">
+
 
         <div class="auth-brand">
 
@@ -446,6 +836,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <div class="brand-mark">
                     C
                 </div>
+
 
                 <div class="brand-text">
 
@@ -466,6 +857,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         <div class="auth-card">
 
+
             <div class="auth-header">
 
                 <span class="section-label">
@@ -477,13 +869,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </h1>
 
                 <p>
-                    Create your CVSWHO account using your official CvSU student email.
+                    Create your CVSWHO account using
+                    your official CvSU student email.
                 </p>
 
             </div>
 
 
-            <?php if ($error !== ""): ?>
+            <?php if (
+                $error !== ""
+            ): ?>
 
                 <div class="alert alert-error">
 
@@ -498,11 +893,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             <form
                 method="POST"
-                action=""
+                action="register.php"
                 class="auth-form"
             >
 
+
                 <div class="form-row">
+
 
                     <div class="form-group">
 
@@ -516,7 +913,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             name="first_name"
                             placeholder="First name"
                             value="<?= htmlspecialchars(
-                                $_POST["first_name"] ?? ""
+                                $_POST["first_name"]
+                                ?? ""
                             ) ?>"
                             required
                         >
@@ -536,12 +934,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             name="last_name"
                             placeholder="Last name"
                             value="<?= htmlspecialchars(
-                                $_POST["last_name"] ?? ""
+                                $_POST["last_name"]
+                                ?? ""
                             ) ?>"
                             required
                         >
 
                     </div>
+
 
                 </div>
 
@@ -558,7 +958,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         name="middle_name"
                         placeholder="Middle name"
                         value="<?= htmlspecialchars(
-                            $_POST["middle_name"] ?? ""
+                            $_POST["middle_name"]
+                            ?? ""
                         ) ?>"
                     >
 
@@ -578,13 +979,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         placeholder="firstname.lastname@cvsu.edu.ph"
                         pattern="[A-Za-z]+\.[A-Za-z]+@cvsu\.edu\.ph"
                         value="<?= htmlspecialchars(
-                            $_POST["email"] ?? ""
+                            $_POST["email"]
+                            ?? ""
                         ) ?>"
                         required
                     >
 
                     <span class="input-help">
-                        Example: firstname.lastname@cvsu.edu.ph
+                        Example:
+                        firstname.lastname@cvsu.edu.ph
                     </span>
 
                 </div>
@@ -596,7 +999,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         Password
                     </label>
 
-                    <div class="password-wrapper">
+
+                    <div class="password-field">
 
                         <input
                             type="password"
@@ -609,54 +1013,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         <button
                             type="button"
                             class="password-toggle"
-                            id="passwordToggle"
-                            aria-label="Show password"
+                            data-target="password"
                         >
-
-                            <svg
-                                class="eye-icon eye-open"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"
-                                ></path>
-
-                                <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="3"
-                                ></circle>
-                            </svg>
-
-                            <svg
-                                class="eye-icon eye-closed"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M3 3l18 18"
-                                ></path>
-
-                                <path
-                                    d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16.4 16.4 0 0 1-3.1 3.8"
-                                ></path>
-
-                                <path
-                                    d="M6.1 6.1C3.8 7.7 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 4.1-.9"
-                                ></path>
-
-                                <path
-                                    d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
-                                ></path>
-                            </svg>
-
+                            Show
                         </button>
 
                     </div>
 
+
                     <span class="input-help">
-                        At least 8 characters with uppercase, lowercase, and a number.
+                        At least 8 characters with uppercase,
+                        lowercase, and a number.
                     </span>
 
                 </div>
@@ -668,7 +1035,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         Confirm Password
                     </label>
 
-                    <div class="password-wrapper">
+
+                    <div class="password-field">
 
                         <input
                             type="password"
@@ -681,48 +1049,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         <button
                             type="button"
                             class="password-toggle"
-                            id="confirmPasswordToggle"
-                            aria-label="Show confirm password"
+                            data-target="confirm_password"
                         >
-
-                            <svg
-                                class="eye-icon eye-open"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"
-                                ></path>
-
-                                <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="3"
-                                ></circle>
-                            </svg>
-
-                            <svg
-                                class="eye-icon eye-closed"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M3 3l18 18"
-                                ></path>
-
-                                <path
-                                    d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16.4 16.4 0 0 1-3.1 3.8"
-                                ></path>
-
-                                <path
-                                    d="M6.1 6.1C3.8 7.7 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 4.1-.9"
-                                ></path>
-
-                                <path
-                                    d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
-                                ></path>
-                            </svg>
-
+                            Show
                         </button>
 
                     </div>
@@ -730,33 +1059,35 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </div>
 
 
-                <div class="terms-agreement">
+                <div class="terms-row">
 
-                    <label class="terms-checkbox">
+                    <input
+                        type="checkbox"
+                        id="accept_terms"
+                        name="accept_terms"
+                        value="1"
+                        <?= isset(
+                            $_POST["accept_terms"]
+                        )
+                            ? "checked"
+                            : ""
+                        ?>
+                        required
+                    >
 
-                        <input
-                            type="checkbox"
-                            name="agree_terms"
-                            value="1"
-                            <?= isset($_POST["agree_terms"])
-                                ? "checked"
-                                : "" ?>
-                            required
+                    <label for="accept_terms">
+
+                        I have read and agree to the
+
+                        <a
+                            href="terms.html"
+                            target="_blank"
                         >
+                            Terms and Conditions
+                        </a>
 
-                        <span class="custom-checkbox"></span>
-
-                        <span class="terms-text">
-                            I have read and agree to the
-                            <a
-                                href="terms.html"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                Terms and Conditions
-                            </a>
-                            of CVSWHO.
-                        </span>
+                        and understand how my information
+                        is handled within CVSWHO.
 
                     </label>
 
@@ -769,6 +1100,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 >
                     Create Account
                 </button>
+
 
             </form>
 
@@ -785,12 +1117,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <div class="auth-bottom">
 
                 <p>
+
                     Already have an account?
 
                     <a href="login.php">
                         Login
                     </a>
+
                 </p>
+
 
                 <a
                     href="index.php"
@@ -800,6 +1135,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </a>
 
             </div>
+
 
         </div>
 
@@ -817,82 +1153,66 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </strong>
 
                 <p>
-                    Your official CvSU email will be verified before your account is activated.
+                    Your official CvSU email will be
+                    verified before your account is activated.
                 </p>
 
             </div>
 
         </div>
 
+
     </div>
+
 
 </div>
 
 
 <script>
 
-    function setupPasswordToggle(
-        inputId,
-        buttonId
-    ) {
-        const passwordInput =
-            document.getElementById(
-                inputId
-            );
+document.querySelectorAll(
+    ".password-toggle"
+).forEach(
+    function (button) {
 
-        const toggleButton =
-            document.getElementById(
-                buttonId
-            );
-
-        if (
-            !passwordInput ||
-            !toggleButton
-        ) {
-            return;
-        }
-
-        toggleButton.addEventListener(
+        button.addEventListener(
             "click",
             function () {
 
-                const isHidden =
-                    passwordInput.type ===
-                    "password";
+                const target =
+                    document.getElementById(
+                        button.dataset.target
+                    );
 
-                passwordInput.type =
-                    isHidden
-                        ? "text"
-                        : "password";
 
-                toggleButton.classList.toggle(
-                    "is-visible",
-                    isHidden
-                );
+                if (!target) {
 
-                toggleButton.setAttribute(
-                    "aria-label",
-                    isHidden
-                        ? "Hide password"
-                        : "Show password"
-                );
+                    return;
+                }
+
+
+                const showing =
+                    target.type ===
+                    "text";
+
+
+                target.type =
+                    showing
+                        ? "password"
+                        : "text";
+
+
+                button.textContent =
+                    showing
+                        ? "Show"
+                        : "Hide";
             }
         );
     }
-
-
-    setupPasswordToggle(
-        "password",
-        "passwordToggle"
-    );
-
-
-    setupPasswordToggle(
-        "confirm_password",
-        "confirmPasswordToggle"
-    );
+);
 
 </script>
+
 
 </body>
 

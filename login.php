@@ -5,12 +5,17 @@ session_start();
 require_once "db.php";
 require_once "auth_functions.php";
 
+
 $error = "";
 
 
 /* LOGGED IN */
 
-if (isset($_SESSION["user_id"])) {
+if (
+    isset(
+        $_SESSION["user_id"]
+    )
+) {
 
     $userId =
         (int) $_SESSION["user_id"];
@@ -22,8 +27,11 @@ if (isset($_SESSION["user_id"])) {
                 role,
                 account_status,
                 email_verified
+
             FROM users
+
             WHERE id = ?
+
             LIMIT 1
         ");
 
@@ -134,8 +142,11 @@ if (
                     role,
                     account_status,
                     email_verified
+
                 FROM users
+
                 WHERE LOWER(email) = ?
+
                 LIMIT 1
             ");
 
@@ -227,9 +238,17 @@ if (
                     $user["email"];
 
 
+                unset(
+                    $_SESSION[
+                        "reactivation_code_sent"
+                    ]
+                );
+
+
                 header(
                     "Location: reactivate_account.php"
                 );
+
 
                 exit;
 
@@ -262,19 +281,20 @@ if (
                         );
 
 
-                    /*
-                        Email sending can fail locally
-                        before PHPMailer is configured.
+                    $emailSent =
+                        sendAuthCode(
+                            $user["email"],
+                            $code,
+                            "login"
+                        );
 
-                        We still generate the OTP
-                        for local development testing.
-                    */
 
-                    sendAuthCode(
-                        $user["email"],
-                        $code,
-                        "login"
-                    );
+                    if (!$emailSent) {
+
+                        throw new RuntimeException(
+                            "Unable to send verification email."
+                        );
+                    }
 
 
                     $_SESSION[
@@ -301,29 +321,19 @@ if (
                         $user["role"];
 
 
-                    /*
-                        DEVELOPMENT ONLY
-
-                        auth.php displays this OTP
-                        while PHPMailer is not yet configured.
-                    */
-
-                    $_SESSION[
-                        "dev_auth_code"
-                    ] =
-                        $code;
-
-
                     header(
                         "Location: auth.php"
                     );
 
+
                     exit;
 
-                } catch (Throwable $exception) {
+                } catch (
+                    Throwable $exception
+                ) {
 
                     $error =
-                        "Unable to generate your verification code.";
+                        "Unable to send your verification code. Please try again.";
                 }
             }
         }
@@ -349,6 +359,7 @@ if (
         Login | CVSWHO
     </title>
 
+
     <link
         rel="preconnect"
         href="https://fonts.googleapis.com"
@@ -364,6 +375,7 @@ if (
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
         rel="stylesheet"
     >
+
 
     <link
         rel="stylesheet"
@@ -471,11 +483,13 @@ if (
                         Email Address
                     </label>
 
+
                     <div class="input-wrapper">
 
                         <span class="input-icon">
                             @
                         </span>
+
 
                         <input
                             type="email"
@@ -492,9 +506,11 @@ if (
 
                     </div>
 
+
                     <span class="input-help">
                         CvSU students use their school email.
-                        Administrators use their assigned administrator email.
+                        Administrators use their assigned
+                        administrator email.
                     </span>
 
                 </div>
@@ -502,11 +518,13 @@ if (
 
                 <div class="form-group">
 
+
                     <div class="label-row">
 
                         <label for="password">
                             Password
                         </label>
+
 
                         <a
                             href="forgot_password.php"
@@ -524,6 +542,7 @@ if (
                             •
                         </span>
 
+
                         <input
                             type="password"
                             id="password"
@@ -532,6 +551,7 @@ if (
                             autocomplete="current-password"
                             required
                         >
+
 
                         <button
                             type="button"
@@ -580,12 +600,15 @@ if (
             <div class="auth-bottom">
 
                 <p>
+
                     Don't have a student account?
 
                     <a href="register.php">
                         Create an account
                     </a>
+
                 </p>
+
 
                 <a
                     href="index.php"
@@ -607,6 +630,7 @@ if (
             <div class="security-icon">
                 ✓
             </div>
+
 
             <div>
 
@@ -639,17 +663,22 @@ if (
 
 <script>
 
-    const passwordInput =
-        document.getElementById(
-            "password"
-        );
+const passwordInput =
+    document.getElementById(
+        "password"
+    );
 
 
-    const passwordToggle =
-        document.getElementById(
-            "passwordToggle"
-        );
+const passwordToggle =
+    document.getElementById(
+        "passwordToggle"
+    );
 
+
+if (
+    passwordInput &&
+    passwordToggle
+) {
 
     passwordToggle.addEventListener(
         "click",
@@ -680,6 +709,7 @@ if (
             );
         }
     );
+}
 
 </script>
 

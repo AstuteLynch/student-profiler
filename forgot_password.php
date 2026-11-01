@@ -5,19 +5,26 @@ session_start();
 require_once "db.php";
 require_once "auth_functions.php";
 
+
 $error = "";
 
 
 /* ALREADY LOGGED IN */
 
-if (isset($_SESSION["user_id"])) {
+if (
+    isset(
+        $_SESSION["user_id"]
+    )
+) {
 
     $role =
-        $_SESSION["user_role"]
-        ?? $_SESSION["role"]
-        ?? "student";
+        getSessionRole();
 
-    if ($role === "administrator") {
+
+    if (
+        $role ===
+        "administrator"
+    ) {
 
         header(
             "Location: admin_dashboard.php"
@@ -29,6 +36,7 @@ if (isset($_SESSION["user_id"])) {
             "Location: student_dashboard.php"
         );
     }
+
 
     exit;
 }
@@ -49,7 +57,9 @@ if (
         );
 
 
-    if ($email === "") {
+    if (
+        $email === ""
+    ) {
 
         $error =
             "Please enter your email address.";
@@ -74,8 +84,11 @@ if (
                     role,
                     account_status,
                     email_verified
+
                 FROM users
+
                 WHERE LOWER(email) = ?
+
                 LIMIT 1
             ");
 
@@ -83,7 +96,7 @@ if (
         if (!$stmt) {
 
             $error =
-                "Unable to process your request right now.";
+                "Unable to process the request.";
 
         } else {
 
@@ -108,59 +121,33 @@ if (
             if (!$user) {
 
                 $error =
-                    "No CVSWHO account was found using that email address.";
+                    "No CVSWHO account was found for that email address.";
 
             } elseif (
-                !in_array(
-                    $user["role"],
+                (int) $user[
+                    "email_verified"
+                ] !== 1
+            ) {
+
+                $error =
+                    "This email address has not been verified.";
+
+            } elseif (
+                in_array(
+                    $user[
+                        "account_status"
+                    ],
                     [
-                        "student",
-                        "administrator"
+                        "pending",
+                        "archived",
+                        "suspended"
                     ],
                     true
                 )
             ) {
 
                 $error =
-                    "This account cannot reset its password here.";
-
-            } elseif (
-                $user["role"] === "student" &&
-                !isCvsuEmail(
-                    $user["email"]
-                )
-            ) {
-
-                $error =
-                    "Student accounts must use a valid CvSU email address.";
-
-            } elseif (
-                $user["account_status"] === "archived"
-            ) {
-
-                $error =
-                    "This account is currently unavailable.";
-
-            } elseif (
-                $user["account_status"] === "suspended"
-            ) {
-
-                $error =
-                    "This account is currently suspended.";
-
-            } elseif (
-                $user["account_status"] === "pending"
-            ) {
-
-                $error =
-                    "This account has not completed registration.";
-
-            } elseif (
-                (int) $user["email_verified"] !== 1
-            ) {
-
-                $error =
-                    "This email address has not been verified.";
+                    "This account cannot currently reset its password.";
 
             } else {
 
@@ -178,11 +165,20 @@ if (
                         );
 
 
-                    sendAuthCode(
-                        $user["email"],
-                        $code,
-                        "password_reset"
-                    );
+                    $emailSent =
+                        sendAuthCode(
+                            $user["email"],
+                            $code,
+                            "password_reset"
+                        );
+
+
+                    if (!$emailSent) {
+
+                        throw new RuntimeException(
+                            "Unable to send password reset email."
+                        );
+                    }
 
 
                     $_SESSION[
@@ -209,31 +205,19 @@ if (
                         $user["role"];
 
 
-                    /* DEVELOPMENT ONLY */
-
-                    $_SESSION[
-                        "dev_auth_code"
-                    ] =
-                        $code;
-
-
-                    unset(
-                        $_SESSION[
-                            "password_reset_verified"
-                        ]
-                    );
-
-
                     header(
                         "Location: auth.php"
                     );
 
+
                     exit;
 
-                } catch (Throwable $exception) {
+                } catch (
+                    Throwable $exception
+                ) {
 
                     $error =
-                        "Unable to generate your password reset verification code.";
+                        "Unable to send the password reset verification code. Please try again.";
                 }
             }
         }
@@ -259,10 +243,12 @@ if (
         Forgot Password | CVSWHO
     </title>
 
+
     <link
         rel="preconnect"
         href="https://fonts.googleapis.com"
     >
+
 
     <link
         rel="preconnect"
@@ -270,10 +256,12 @@ if (
         crossorigin
     >
 
+
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
         rel="stylesheet"
     >
+
 
     <link
         rel="stylesheet"
@@ -304,11 +292,13 @@ if (
                     C
                 </div>
 
+
                 <div class="brand-text">
 
                     <span class="brand-name">
                         CVSWHO
                     </span>
+
 
                     <span class="brand-subtitle">
                         Student Profile Management
@@ -332,14 +322,17 @@ if (
                     ACCOUNT RECOVERY
                 </span>
 
+
                 <h1>
                     Forgot your password?
                 </h1>
 
+
                 <p>
-                    Enter the email address connected to your CVSWHO account.
-                    We will verify your account before allowing you to create
-                    a new password.
+                    Enter the email address connected
+                    to your CVSWHO account.
+                    A verification code will be sent
+                    to your email.
                 </p>
 
             </div>
@@ -354,6 +347,7 @@ if (
                     <span class="alert-icon">
                         !
                     </span>
+
 
                     <span>
 
@@ -381,11 +375,13 @@ if (
                         Email Address
                     </label>
 
+
                     <div class="input-wrapper">
 
                         <span class="input-icon">
                             @
                         </span>
+
 
                         <input
                             type="email"
@@ -402,11 +398,6 @@ if (
 
                     </div>
 
-                    <span class="input-help">
-                        Students use their CvSU school email.
-                        Administrators use their assigned administrator email.
-                    </span>
-
                 </div>
 
 
@@ -415,7 +406,7 @@ if (
                     class="auth-button"
                 >
 
-                    Continue
+                    Send Verification Code
 
                     <span class="button-arrow">
                         →
@@ -430,7 +421,7 @@ if (
             <div class="auth-divider">
 
                 <span>
-                    ACCOUNT RECOVERY
+                    ACCOUNT ACCESS
                 </span>
 
             </div>
@@ -438,19 +429,11 @@ if (
 
             <div class="auth-bottom">
 
-                <p>
-                    Remember your password?
-
-                    <a href="login.php">
-                        Sign in
-                    </a>
-                </p>
-
                 <a
-                    href="index.php"
+                    href="login.php"
                     class="back-link"
                 >
-                    ← Back to home
+                    ← Back to login
                 </a>
 
             </div>
@@ -459,11 +442,14 @@ if (
         </div>
 
 
+        <!-- SECURITY -->
+
         <div class="auth-security">
 
             <div class="security-icon">
                 ✓
             </div>
+
 
             <div>
 
@@ -471,9 +457,11 @@ if (
                     Secure Password Recovery
                 </strong>
 
+
                 <p>
-                    Your account must be verified using a temporary
-                    verification code before your password can be changed.
+                    Your password can only be reset
+                    after the verification code sent
+                    to your registered email is confirmed.
                 </p>
 
             </div>
